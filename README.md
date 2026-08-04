@@ -36,7 +36,7 @@ configuração YAML do problema:
 | Sensibilidade | Duais/custos reduzidos via fix-and-resolve | Opcional, config-driven (`sensitivity.enabled`, default `false` — custa um resolve extra); `solver/sensitivity.py` |
 | Métricas do solve | Tempo de parede, bounds, gap | Automático (sempre populado, custo zero); anexado a `result.metrics` |
 | Export JSON | `Result` + solução → dict/JSON plano | Chamada explícita (`results/export.py`), não automática — ponto de integração com camadas de workflow externas |
-| `MilpStrategy` | `build_model` → `solve` → `extract_solution` | Registrada em `strategy/registry.py` sob `optimization_type="milp"` — ponto de extensão para CP/metaheurísticas futuras |
+| `MilpStrategy` | `build_model` → `solve` → `extract_solution` | Registrada em `strategy/registry.py` sob `optimization_type="milp"` **e** `"lp"` (LP é caso particular de MILP — zero variáveis inteiras/binárias, mesma classe) — ponto de extensão para CP/metaheurísticas futuras |
 
 `Model.build()` (`core/model.py`) monta tudo na ordem
 `sets → parameters → variables → constraints → objective`.
