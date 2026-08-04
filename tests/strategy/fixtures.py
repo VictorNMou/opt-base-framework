@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
 
 from optframework.constraints.rules import ConstraintRules
-from optframework.core.problem_data import ProblemData
+from optframework.objective.rules import ObjectiveRules
 
 
 class FakeRules(ConstraintRules):
@@ -11,8 +11,8 @@ class FakeRules(ConstraintRules):
         return sum(model.producao[p] for p in model.PRODUTOS) <= model.capacidade_max
 
 
-class MaximizeProducao:
-    """Rule fake: maximiza a soma da produção."""
+class FakeObjectives(ObjectiveRules):
+    """Rules fake: maximiza a soma da produção."""
 
-    def build(self, model: pyo.ConcreteModel, data: ProblemData) -> object:
+    def maximizar(self, model: pyo.ConcreteModel) -> object:
         return sum(model.producao[p] for p in model.PRODUTOS)

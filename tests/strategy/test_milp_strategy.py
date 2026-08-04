@@ -49,8 +49,9 @@ def test_build_model_solve_extract_solution_end_to_end(tmp_path: Path) -> None:
         "constraints:\n  capacidade: {}\n"
     )
     (tmp_path / "model_objective.yaml").write_text(
+        "rules_class: tests.strategy.fixtures.FakeObjectives\n"
         "default: maximizar\n"
-        "objectives:\n  maximizar:\n    sense: maximize\n    rule: tests.strategy.fixtures.MaximizeProducao\n"
+        "objectives:\n  maximizar:\n    sense: maximize\n"
     )
     data = SimpleNamespace(
         config_dir=str(tmp_path), produtos=["p1", "p2"], capacidade=10.0

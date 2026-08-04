@@ -1,20 +1,14 @@
-import pyomo.environ as pyo
-
-from optframework.core.problem_data import ProblemData
+from optframework.objective.rules import ObjectiveRules
 
 
-class CountingRule:
-    """Rule fake: conta quantas vezes build() foi chamado, para provar cache."""
+class FakeObjectives(ObjectiveRules):
+    """Rules fake: dois objectives, um deles conta quantas vezes foi chamado (prova cache)."""
 
     call_count = 0
 
-    def build(self, model: pyo.ConcreteModel, data: ProblemData) -> object:
-        CountingRule.call_count += 1
+    def minimizar(self, model: object) -> object:
+        FakeObjectives.call_count += 1
         return model.x
 
-
-class OtherRule:
-    """Rule fake: uma segunda expressão, para o cenário de dois perfis."""
-
-    def build(self, model: pyo.ConcreteModel, data: ProblemData) -> object:
+    def maximizar(self, model: object) -> object:
         return model.y

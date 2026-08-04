@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
 
 from problems.exemplo_knapsack.data_loader import load_data
-from problems.exemplo_knapsack.rules import KnapsackRules
+from problems.exemplo_knapsack.rules import KnapsackObjectives, KnapsackRules
 
 
 def _new_model() -> pyo.ConcreteModel:
@@ -40,3 +40,26 @@ def test_limite_capacidade_attaches_as_real_constraint_via_framework() -> None:
     model.limite_capacidade = pyo.Constraint(rule=rules.limite_capacidade)
 
     assert isinstance(model.limite_capacidade, pyo.Constraint)
+
+
+def test_maximizar_valor_returns_total_value_expression() -> None:
+    model = _new_model()
+    model.valor = pyo.Param(model.ITEMS, initialize={"A": 60, "B": 100, "C": 120})
+    model.selecionado["A"].fix(0)
+    model.selecionado["B"].fix(1)
+    model.selecionado["C"].fix(1)
+    objectives = KnapsackObjectives(load_data())
+
+    expr = objectives.maximizar_valor(model)
+
+    assert pyo.value(expr) == 220
+
+
+def test_maximizar_valor_attaches_as_real_objective_via_framework() -> None:
+    model = _new_model()
+    model.valor = pyo.Param(model.ITEMS, initialize={"A": 60, "B": 100, "C": 120})
+    objectives = KnapsackObjectives(load_data())
+
+    model.maximizar_valor = pyo.Objective(rule=objectives.maximizar_valor, sense=pyo.maximize)
+
+    assert isinstance(model.maximizar_valor, pyo.Objective)
