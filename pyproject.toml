@@ -24,7 +24,8 @@ authors = [{ name = "Victor Moura", email = "vimoura@solarbr.com.br" }]
  "pyomo>=6.8",
  "pandas>=2.2",
  "pyyaml>=6.0",
- ]
+ "highspy>=1.15.1",
+]
 
  # *********************************************
  # * Dependency Groups

@@ -1,2 +1,16 @@
-# Perfis de solver (ex.: optimal, faster_not_optimal) — a definir na implementação real.
-profiles: {}
+profiles:
+  default:
+    solver_name: appsi_highs
+    tee: false
+    options: {}
+  optimal:
+    solver_name: appsi_highs
+    tee: false
+    options:
+      mip_rel_gap: 0.0
+  faster_not_optimal:
+    solver_name: appsi_highs
+    tee: false
+    options:
+      time_limit: 10
+      mip_rel_gap: 0.05
