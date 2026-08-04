@@ -13,3 +13,6 @@ wheels/
 .coverage
 coverage_html_report/
 .pytest_cache/
+
+# Saída gerada em runtime (Reporter, export JSON)
+reports/

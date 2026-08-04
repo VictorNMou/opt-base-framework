@@ -25,6 +25,8 @@ def test_solve_returns_optimal_result() -> None:
     assert result.values[("x", None)] == pytest.approx(0.0)
     assert result.is_infeasible is False
     assert result.infeasibility is None
+    assert result.metrics is not None
+    assert result.sensitivity is None
 
 
 def test_solve_indexed_var_uses_native_name_index_key() -> None:
@@ -136,3 +138,56 @@ def test_infeasible_solve_with_report_enabled_writes_infeasibility_file(tmp_path
     infeasibility_path = output_dir / "infeasibility_cenario_x.txt"
     assert infeasibility_path.exists()
     assert "c_" in infeasibility_path.read_text()
+
+
+def test_metrics_always_populated_even_when_infeasible() -> None:
+    result = PyomoAdapter().solve(_infeasible_model())
+
+    assert result.metrics is not None
+    assert result.metrics.wall_time_seconds > 0
+    assert result.metrics.lower_bound is None
+
+
+def test_sensitivity_disabled_by_default() -> None:
+    result = PyomoAdapter().solve(_new_model())
+
+    assert result.sensitivity is None
+
+
+def test_sensitivity_enabled_via_config(tmp_path: Path) -> None:
+    (tmp_path / "model_solver.yaml").write_text(
+        "profiles:\n  default:\n    solver_name: appsi_highs\n    tee: false\n    options: {}\n"
+        "sensitivity:\n  enabled: true\n"
+    )
+    model = _new_model()
+
+    result = PyomoAdapter(config_dir=tmp_path).solve(model)
+
+    assert result.sensitivity is not None
+    assert result.sensitivity.resolved
+
+
+def test_sensitivity_not_attempted_on_infeasible_solve(tmp_path: Path) -> None:
+    (tmp_path / "model_solver.yaml").write_text(
+        "profiles:\n  default:\n    solver_name: appsi_highs\n    tee: false\n    options: {}\n"
+        "sensitivity:\n  enabled: true\n"
+    )
+    model = _infeasible_model()
+
+    result = PyomoAdapter(config_dir=tmp_path).solve(model)
+
+    assert result.sensitivity is None
+
+
+def test_sensitivity_enabled_with_report_writes_sensitivity_file(tmp_path: Path) -> None:
+    output_dir = tmp_path / "reports"
+    (tmp_path / "model_solver.yaml").write_text(
+        f"report:\n  enabled: true\n  output_dir: {output_dir}\n"
+        "profiles:\n  default:\n    solver_name: appsi_highs\n    tee: false\n    options: {}\n"
+        "sensitivity:\n  enabled: true\n"
+    )
+    model = _new_model()
+
+    PyomoAdapter(config_dir=tmp_path).solve(model, label="cenario_x")
+
+    assert (output_dir / "sensitivity_cenario_x.txt").exists()

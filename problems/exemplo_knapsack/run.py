@@ -1,3 +1,4 @@
+from optframework.results.export import write_result_json
 from optframework.strategy.milp_strategy import MilpStrategy
 from problems.exemplo_knapsack.data_loader import load_data
 
@@ -25,6 +26,8 @@ def main() -> None:
     print("Status:", result.termination_condition)
     print("Itens selecionados:", selecionados)
     print("Valor total:", valor_total)
+
+    write_result_json(result, solution, "reports/exemplo_knapsack_result.json")
 
 
 if __name__ == "__main__":

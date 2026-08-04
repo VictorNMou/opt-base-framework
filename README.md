@@ -33,6 +33,9 @@ configuração YAML do problema:
 | `ScenarioLoop` | Resolve a mesma instância várias vezes, mutando parâmetros/ativações | Opcional, config-driven (`model_scenarios.yaml`) |
 | `Reporter` | Snapshots de texto do modelo (`pprint` antes / `display` depois) | Opcional, ligado por config (`report.enabled`) |
 | Diagnóstico de infeasibilidade | Aponta candidatas a causa quando o solve dá infeasible | Automático (`infeasibility.enabled`, default `true`); analisador escolhido por `solver/infeasibility/registry.py` — ponto de extensão análogo ao de `MilpStrategy` |
+| Sensibilidade | Duais/custos reduzidos via fix-and-resolve | Opcional, config-driven (`sensitivity.enabled`, default `false` — custa um resolve extra); `solver/sensitivity.py` |
+| Métricas do solve | Tempo de parede, bounds, gap | Automático (sempre populado, custo zero); anexado a `result.metrics` |
+| Export JSON | `Result` + solução → dict/JSON plano | Chamada explícita (`results/export.py`), não automática — ponto de integração com camadas de workflow externas |
 | `MilpStrategy` | `build_model` → `solve` → `extract_solution` | Registrada em `strategy/registry.py` sob `optimization_type="milp"` — ponto de extensão para CP/metaheurísticas futuras |
 
 `Model.build()` (`core/model.py`) monta tudo na ordem
@@ -64,6 +67,36 @@ resolveu mesmo com slack ilimitado — a causa provável é bound/domínio de va
 não uma constraint geral (o relaxamento só toca constraints, nunca bounds). Extensões fora de
 escopo por ora: parsear o `.ilp`/`.lp` nativo de volta em nomes estruturados, e IIS mínimo via
 deleção iterativa de constraints (o relaxamento elástico reporta candidatas, não a causa única).
+
+## Sensibilidade e métricas do solve
+
+`result.sensitivity` (quando `sensitivity.enabled: true` em `model_solver.yaml` — desligado por
+padrão, custa um resolve extra) funciona fixando toda variável binária/inteira no seu valor
+resolvido (trocando o domínio para contínuo antes de fixar — só `.fix()` não basta, o HiGHS via
+Pyomo recusa duais em qualquer modelo com variável discreta) e reotimizando com Suffixes
+`dual`/`rc`. É útil para MILPs com componente contínua real; **para problemas 100% binários
+(knapsack, atribuição), os duais tendem a zerar** — depois que toda variável vira constante fixa,
+não sobra margem contínua pra precificar a constraint. Isso é esperado, não um bug.
+`rc` (custo reduzido) pode vir `None` dependendo do solver (confirmado sempre `None` em
+`appsi_highs`/HiGHS) — trate como "não disponível", nunca como erro.
+
+`result.metrics` é sempre populado (tempo de parede medido em Python, `lower_bound`/
+`upper_bound`/`gap` do schema padrão do Pyomo — `None` quando o solver não os populou, ex. em
+infeasible). `gap` é magnitude pura, não um gap assinado por sentido de otimização.
+
+## Integração com plataformas externas (ex.: Databricks)
+
+O núcleo do framework nunca importa SDK de plataforma (Spark, Databricks, etc.) — ele só conhece
+`ProblemData`, um contrato de dataclass simples (`core/problem_data.py`). Qualquer integração com
+uma plataforma de dados fica numa camada de *workflow*, fora do núcleo: essa camada lê de onde
+precisar (Spark, Delta, um CSV), converte para `ProblemData` e só então chama `MilpStrategy`. O
+núcleo nunca sabe que uma plataforma externa existe.
+
+O ponto de saída análogo é `results/export.py`: `result_to_dict()`/`write_result_json()`
+convertem um `Result` (mais a solução extraída) num dict/JSON plano — sem qualquer dependência de
+Spark — que a camada de workflow pode gravar como está em Delta/JSON/onde for conveniente.
+Chamada explícita, não automática: quem decide se/quando exportar é o `run.py` do problema, não o
+`PyomoAdapter` (ver `problems/exemplo_knapsack/run.py` para um exemplo).
 
 ## Como criar um problema novo
 

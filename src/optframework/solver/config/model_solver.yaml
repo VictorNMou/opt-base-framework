@@ -8,6 +8,10 @@ infeasibility:
   output_dir: reports
   options: {}
 
+sensitivity:
+  enabled: false
+  options: {}
+
 profiles:
   default:
     solver_name: appsi_highs
