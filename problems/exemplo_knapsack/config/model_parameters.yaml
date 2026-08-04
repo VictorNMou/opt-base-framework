@@ -1,0 +1,10 @@
+parameters:
+  peso:
+    index: [ITEMS]
+    source: data.peso
+  valor:
+    index: [ITEMS]
+    source: data.valor
+  capacidade_max:
+    source: data.capacidade
+    mutable: true

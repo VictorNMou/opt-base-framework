@@ -1,0 +1,5 @@
+rules_class: problems.exemplo_knapsack.rules.KnapsackObjectives
+default: maximizar_valor
+objectives:
+  maximizar_valor:
+    sense: maximize
