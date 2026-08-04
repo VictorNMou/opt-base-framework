@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pyomo.environ as pyo
 
+from optframework.results.infeasibility import ConstraintViolation, InfeasibilityReport
 from optframework.solver.reporter import Reporter
 
 
@@ -50,3 +51,46 @@ def test_output_dir_created_if_missing(tmp_path: Path) -> None:
     Reporter(str(output_dir))
 
     assert output_dir.is_dir()
+
+
+def test_write_infeasibility_with_violations(tmp_path: Path) -> None:
+    reporter = Reporter(str(tmp_path))
+    report = InfeasibilityReport(
+        method="elastic_relaxation",
+        violations=[ConstraintViolation("limite_capacidade", None, "upper", 12.5)],
+    )
+
+    path = reporter.write_infeasibility(report, label="cenario_a")
+
+    assert path == tmp_path / "infeasibility_cenario_a.txt"
+    content = path.read_text()
+    assert "limite_capacidade" in content
+    assert "12.5" in content
+
+
+def test_write_infeasibility_bound_conflict(tmp_path: Path) -> None:
+    reporter = Reporter(str(tmp_path))
+    report = InfeasibilityReport(method="elastic_relaxation", suspected_bound_conflict=True)
+
+    path = reporter.write_infeasibility(report)
+
+    assert path == tmp_path / "infeasibility.txt"
+    assert "bounds" in path.read_text()
+
+
+def test_write_infeasibility_native_points_to_iis_file(tmp_path: Path) -> None:
+    reporter = Reporter(str(tmp_path))
+    report = InfeasibilityReport(method="native_iis:gurobi", iis_file="reports/model.ilp")
+
+    path = reporter.write_infeasibility(report)
+
+    assert "reports/model.ilp" in path.read_text()
+
+
+def test_write_infeasibility_inconclusive(tmp_path: Path) -> None:
+    reporter = Reporter(str(tmp_path))
+    report = InfeasibilityReport(method="elastic_relaxation")
+
+    path = reporter.write_infeasibility(report)
+
+    assert "inconclusivo" in path.read_text()

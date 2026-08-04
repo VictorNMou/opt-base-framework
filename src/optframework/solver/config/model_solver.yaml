@@ -2,6 +2,12 @@ report:
   enabled: false
   output_dir: reports
 
+infeasibility:
+  enabled: true
+  tolerance: 1.0e-6
+  output_dir: reports
+  options: {}
+
 profiles:
   default:
     solver_name: appsi_highs
