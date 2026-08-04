@@ -12,3 +12,4 @@ class ConstraintRules:
 
     def build_rule(self, model: pyo.ConcreteModel, name: str) -> object | None:
         """Devolve a expressão/regra Pyomo da constraint nomeada, ou None se degenerada."""
+        raise NotImplementedError

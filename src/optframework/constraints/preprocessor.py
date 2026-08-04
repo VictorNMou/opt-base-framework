@@ -10,3 +10,4 @@ class ConstraintsPreprocessor:
 
     def preprocess(self) -> dict[str, object]:
         """Transforma as tabelas cruas em estruturas prontas para virar constraint."""
+        raise NotImplementedError
