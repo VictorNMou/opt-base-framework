@@ -1,0 +1,5 @@
+default: maximizar_valor
+objectives:
+  maximizar_valor:
+    sense: maximize
+    rule: problems.exemplo_knapsack.objective_impl.MaximizeValue

@@ -1,0 +1,3 @@
+constraints:
+  limite_capacidade:
+    rule: problems.exemplo_knapsack.constraints_impl.CapacityConstraint
