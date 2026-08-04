@@ -1,4 +1,11 @@
 # *********************************************
+ # * Build System
+ # *********************************************
+ [build-system]
+ requires = ["hatchling"]
+ build-backend = "hatchling.build"
+
+# *********************************************
  # * Project Metadata
  # *********************************************
 
@@ -14,6 +21,9 @@ authors = [{ name = "Victor Moura", email = "vimoura@solarbr.com.br" }]
  # * Dependencies
  # *********************************************
  dependencies = [
+ "pyomo>=6.8",
+ "pandas>=2.2",
+ "pyyaml>=6.0",
  ]
 
  # *********************************************
@@ -37,6 +47,12 @@ dev = [
  [tool.uv]
  default-groups = ["test", "dev"]
  keyring-provider = "subprocess"
+
+# *********************************************
+ # * Hatch Build Configuration
+ # *********************************************
+ [tool.hatch.build.targets.wheel]
+ packages = ["src/optframework"]
 
 # *********************************************
  # * Ruff Configuration
@@ -129,7 +145,7 @@ dev = [
  # * Pytest Configuration
  # *********************************************
  [tool.pytest.ini_options]
- pythonpath = ["."]
+ pythonpath = ["src", "."]
  python_files = "test_*.py"
  python_functions = "test_*"
  minversion = "8.0"
