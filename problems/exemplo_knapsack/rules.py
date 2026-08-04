@@ -1,7 +1,6 @@
 import pyomo.environ as pyo
 
 from optframework.core.problem_data import ProblemData
-from optframework.objective.rules import ObjectiveRules
 
 
 class KnapsackRules:
@@ -19,8 +18,12 @@ class KnapsackRules:
         )
 
 
-class KnapsackObjectives(ObjectiveRules):
+class KnapsackObjectives:
     """Regras de objective do problema de knapsack — um objective por método."""
+
+    def __init__(self, data: ProblemData) -> None:
+        """Guarda os dados do problema; disponíveis a cada método via self.data."""
+        self.data = data
 
     def maximizar_valor(self, model: pyo.ConcreteModel) -> object:
         """Valor total dos itens selecionados na mochila."""

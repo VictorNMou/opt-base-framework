@@ -78,7 +78,7 @@ problems/<nome>/
 │   ├── model_constraints.yaml     # rules_class: problems.<nome>.rules.<Nome>Rules
 │   └── model_objective.yaml       # rules_class: problems.<nome>.rules.<Nome>Objectives
 ├── data_loader.py                 # dataclass <Nome>Data + load_data() -> <Nome>Data
-├── rules.py                       # <Nome>Rules (constructor guarda self.data), <Nome>Objectives(ObjectiveRules)
+├── rules.py                       # <Nome>Rules, <Nome>Objectives (cada um com constructor guardando self.data)
 └── run.py                         # main(): load_data -> MilpStrategy -> imprime/reporta
 ```
 
