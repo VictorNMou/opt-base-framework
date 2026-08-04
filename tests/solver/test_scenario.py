@@ -5,13 +5,17 @@ from optframework.solver.scenario import Scenario, ScenarioRunner
 
 
 class _FakeSolver:
-    """Solver fake: registra os perfis usados, sem resolver de verdade."""
+    """Solver fake: registra os perfis/labels usados, sem resolver de verdade."""
 
     def __init__(self) -> None:
         self.profiles_used: list[str] = []
+        self.labels_used: list[str | None] = []
 
-    def solve(self, model: pyo.ConcreteModel, profile: str = "default") -> Result:
+    def solve(
+        self, model: pyo.ConcreteModel, profile: str = "default", label: str | None = None
+    ) -> Result:
         self.profiles_used.append(profile)
+        self.labels_used.append(label)
         return Result(termination_condition="fake", values={})
 
     def get_results(self) -> Result:
@@ -107,3 +111,13 @@ def test_run_returns_result_per_scenario_name() -> None:
     results = ScenarioRunner(model, _FakeSolver()).run(scenarios)
 
     assert set(results.keys()) == {"a", "b"}
+
+
+def test_run_passes_scenario_name_as_label() -> None:
+    model = _new_model()
+    solver = _FakeSolver()
+    scenarios = [Scenario(name="a"), Scenario(name="b")]
+
+    ScenarioRunner(model, solver).run(scenarios)
+
+    assert solver.labels_used == ["a", "b"]

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pyomo.environ as pyo
 import pytest
 
@@ -42,3 +44,29 @@ def test_get_results_after_solve_returns_same_result() -> None:
     result = adapter.solve(model)
 
     assert adapter.get_results() is result
+
+
+def test_report_enabled_writes_before_and_after_files(tmp_path: Path) -> None:
+    output_dir = tmp_path / "reports"
+    (tmp_path / "model_solver.yaml").write_text(
+        f"report:\n  enabled: true\n  output_dir: {output_dir}\n"
+        "profiles:\n  default:\n    solver_name: appsi_highs\n    tee: false\n    options: {}\n"
+    )
+    model = _new_model()
+
+    PyomoAdapter(config_dir=tmp_path).solve(model, label="cenario_x")
+
+    assert (output_dir / "pprint_before_cenario_x.txt").exists()
+    assert (output_dir / "display_after_cenario_x.txt").exists()
+
+
+def test_report_disabled_writes_no_files(tmp_path: Path) -> None:
+    output_dir = tmp_path / "reports"
+    (tmp_path / "model_solver.yaml").write_text(
+        "profiles:\n  default:\n    solver_name: appsi_highs\n    tee: false\n    options: {}\n"
+    )
+    model = _new_model()
+
+    PyomoAdapter(config_dir=tmp_path).solve(model)
+
+    assert not output_dir.exists()
