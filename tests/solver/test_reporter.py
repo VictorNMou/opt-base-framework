@@ -3,6 +3,11 @@ from pathlib import Path
 import pyomo.environ as pyo
 
 from optframework.results.infeasibility import ConstraintViolation, InfeasibilityReport
+from optframework.results.sensitivity import (
+    ConstraintDual,
+    SensitivityReport,
+    VariableReducedCost,
+)
 from optframework.solver.reporter import Reporter
 
 
@@ -94,3 +99,58 @@ def test_write_infeasibility_inconclusive(tmp_path: Path) -> None:
     path = reporter.write_infeasibility(report)
 
     assert "inconclusivo" in path.read_text()
+
+
+def test_write_sensitivity_with_duals(tmp_path: Path) -> None:
+    reporter = Reporter(str(tmp_path))
+    report = SensitivityReport(duals=[ConstraintDual("limite_capacidade", None, 3.0)])
+
+    path = reporter.write_sensitivity(report, label="cenario_a")
+
+    assert path == tmp_path / "sensitivity_cenario_a.txt"
+    content = path.read_text()
+    assert "limite_capacidade" in content
+    assert "3" in content
+
+
+def test_write_sensitivity_with_reduced_costs(tmp_path: Path) -> None:
+    reporter = Reporter(str(tmp_path))
+    report = SensitivityReport(
+        duals=[ConstraintDual("c1", None, 3.0)],
+        reduced_costs=[VariableReducedCost("x", None, None)],
+    )
+
+    path = reporter.write_sensitivity(report)
+
+    content = path.read_text()
+    assert "Custos reduzidos" in content
+    assert "rc=N/A" in content
+
+
+def test_write_sensitivity_no_duals(tmp_path: Path) -> None:
+    reporter = Reporter(str(tmp_path))
+    report = SensitivityReport(duals=[], fixed_variable_count=0)
+
+    path = reporter.write_sensitivity(report)
+
+    assert "nenhuma constraint" in path.read_text()
+
+
+def test_write_sensitivity_unresolved(tmp_path: Path) -> None:
+    reporter = Reporter(str(tmp_path))
+    report = SensitivityReport(resolved=False)
+
+    path = reporter.write_sensitivity(report)
+
+    assert "não convergiu" in path.read_text()
+
+
+def test_write_sensitivity_degenerate_all_binary_warning_included(tmp_path: Path) -> None:
+    reporter = Reporter(str(tmp_path))
+    report = SensitivityReport(
+        duals=[ConstraintDual("cap", None, 0.0)], fixed_variable_count=3
+    )
+
+    path = reporter.write_sensitivity(report)
+
+    assert "esperado, não um erro" in path.read_text()
