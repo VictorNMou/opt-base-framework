@@ -1,0 +1,4 @@
+variables:
+  selecionado:
+    index: [ITEMS]
+    domain: Binary
