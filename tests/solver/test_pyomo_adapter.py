@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pyomo.environ as pyo
 import pytest
@@ -191,3 +192,41 @@ def test_sensitivity_enabled_with_report_writes_sensitivity_file(tmp_path: Path)
     PyomoAdapter(config_dir=tmp_path).solve(model, label="cenario_x")
 
     assert (output_dir / "sensitivity_cenario_x.txt").exists()
+
+
+def test_problem_config_dir_merges_over_framework_default(tmp_path: Path) -> None:
+    (tmp_path / "model_solver.yaml").write_text("sensitivity:\n  enabled: true\n")
+    data = SimpleNamespace(config_dir=str(tmp_path))
+    model = _new_model()
+
+    result = PyomoAdapter().solve(model, data=data)
+
+    assert result.sensitivity is not None
+    assert result.infeasibility is None
+
+
+def test_problem_config_merges_nested_profile_without_wiping_others(tmp_path: Path) -> None:
+    (tmp_path / "model_solver.yaml").write_text(
+        "profiles:\n  default:\n    options:\n      time_limit: 5\n"
+    )
+    data = SimpleNamespace(config_dir=str(tmp_path))
+    model = _new_model()
+
+    result_default = PyomoAdapter().solve(model, data=data)
+    result_optimal = PyomoAdapter().solve(model, profile="optimal", data=data)
+
+    assert result_default.termination_condition == pyo.TerminationCondition.optimal
+    assert result_optimal.termination_condition == pyo.TerminationCondition.optimal
+
+
+def test_problem_config_dir_without_model_solver_yaml_uses_framework_default(
+    tmp_path: Path,
+) -> None:
+    data = SimpleNamespace(config_dir=str(tmp_path))
+    model = _new_model()
+
+    result = PyomoAdapter().solve(model, data=data)
+
+    assert result.termination_condition == pyo.TerminationCondition.optimal
+    assert result.infeasibility is None
+    assert result.sensitivity is None

@@ -11,7 +11,7 @@ def test_knapsack_solves_to_known_optimal() -> None:
     strategy = MilpStrategy()
 
     model = strategy.build_model(data)
-    result = strategy.solve(model)
+    result = strategy.solve(model, data)
     solution = strategy.extract_solution(result)
 
     assert result.termination_condition == pyo.TerminationCondition.optimal

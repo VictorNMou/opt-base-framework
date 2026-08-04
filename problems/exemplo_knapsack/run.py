@@ -9,7 +9,7 @@ def main() -> None:
     strategy = MilpStrategy()
 
     model = strategy.build_model(data)
-    result = strategy.solve(model)
+    result = strategy.solve(model, data)
 
     if result.is_infeasible:
         print("Status:", result.termination_condition)
