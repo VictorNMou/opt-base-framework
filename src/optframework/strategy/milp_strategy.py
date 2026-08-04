@@ -20,4 +20,11 @@ class MilpStrategy:
         return PyomoAdapter().solve(model)
 
     def extract_solution(self, result: Result) -> dict[str, Any]:
-        """Extrai a solução do resultado bruto do solve."""
+        """Reagrupa Result.values (chave (nome, índice)) por variável."""
+        solution: dict[str, Any] = {}
+        for (name, index), value in result.values.items():
+            if index is None:
+                solution[name] = value
+            else:
+                solution.setdefault(name, {})[index] = value
+        return solution

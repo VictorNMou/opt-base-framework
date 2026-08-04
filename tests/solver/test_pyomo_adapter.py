@@ -21,8 +21,22 @@ def test_solve_returns_optimal_result() -> None:
     result = PyomoAdapter().solve(model)
 
     assert result.termination_condition == pyo.TerminationCondition.optimal
-    assert result.values["y"] == pytest.approx(10.0)
-    assert result.values["x"] == pytest.approx(0.0)
+    assert result.values[("y", None)] == pytest.approx(10.0)
+    assert result.values[("x", None)] == pytest.approx(0.0)
+
+
+def test_solve_indexed_var_uses_native_name_index_key() -> None:
+    model = pyo.ConcreteModel()
+    model.I = pyo.Set(initialize=["p1", "p2"])
+    model.producao = pyo.Var(model.I, domain=pyo.NonNegativeReals, bounds=(0, 5))
+    model.obj = pyo.Objective(
+        expr=sum(model.producao[i] for i in model.I), sense=pyo.maximize
+    )
+
+    result = PyomoAdapter().solve(model)
+
+    assert result.values[("producao", "p1")] == pytest.approx(5.0)
+    assert result.values[("producao", "p2")] == pytest.approx(5.0)
 
 
 def test_solve_unknown_profile_raises() -> None:

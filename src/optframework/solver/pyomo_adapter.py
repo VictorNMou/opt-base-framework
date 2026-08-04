@@ -44,7 +44,7 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
             reporter.write_after(model, label)
 
         values = {
-            str(var): pyo.value(var)
+            (var.parent_component().local_name, var.index()): pyo.value(var)
             for var in model.component_data_objects(pyo.Var, active=True)
         }
         self._results = Result(
