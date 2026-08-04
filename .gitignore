@@ -16,3 +16,6 @@ coverage_html_report/
 
 # Saída gerada em runtime (Reporter, export JSON)
 reports/
+
+# Cache do ruff
+.ruff_cache/
