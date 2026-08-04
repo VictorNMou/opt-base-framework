@@ -1,7 +1,162 @@
+# *********************************************
+ # * Project Metadata
+ # *********************************************
+
 [project]
 name = "opt-base-framework"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+authors = [{ name = "Victor Moura", email = "vimoura@solarbr.com.br" }]
+
+# *********************************************
+ # * Dependencies
+ # *********************************************
+ dependencies = [
+ ]
+
+ # *********************************************
+ # * Dependency Groups
+ # *********************************************
+ [dependency-groups]
+ test = [
+ "pytest-cov>=6.1.1",
+ "pytest>=8.4.1",
+ ]
+
+dev = [
+ "ruff>=0.14.3",
+ "pre-commit>=4.2.0",
+ "pylint>=3.3.7",
+ ]
+
+# *********************************************
+ # * UV Configuration
+ # *********************************************
+ [tool.uv]
+ default-groups = ["test", "dev"]
+ keyring-provider = "subprocess"
+
+# *********************************************
+ # * Ruff Configuration
+ # *********************************************
+ [tool.ruff]
+ line-length = 88 # Enforce Black-compatible line length
+ # target-version = ["py38", "py39", "py310"] # Uncomment for version-specific linting
+
+[tool.ruff.lint]
+ extend-select = ["A", "B", "E", "F", "N", "NPY", "I", "W", "C90", "D", "ANN"]
+ ignore = [
+ "E203",
+ "E501", # Formatting handled by Black
+ "E712",
+ "D100",
+ "D407",
+ "D203",
+ "D212",
+ "N812",
+ "N999",
+ "N802",
+ "W191",
+ "E114",
+ "D206",
+ "D300",
+ "Q000",
+ "Q001",
+ "Q002",
+ "Q003",
+ "COM812",
+ "COM819",
+ "ISC002",
+ ]
+ exclude = [
+ ".git",
+ "__pycache__",
+ "build",
+ "dist",
+ ".pytest_cache",
+ "*.ipynb",
+ "dbfs/",
+ "venv",
+ ".venv",
+ "__pypackages__",
+ "node_modules",
+ "site-packages",
+ ]
+
+[tool.ruff.lint.per-file-ignores]
+ "__init__.py" = ["F401", "E402", "F405", "F821", "D104"]
+ "tests/**" = [
+ "ANN",
+ "C901",
+ "D101",
+ "D102",
+ "D103",
+ "D105",
+ "D106",
+ "D107",
+ "D213",
+ "D413",
+ "N815",
+ ]
+
+[tool.ruff.format]
+ quote-style = "double"
+
+# *********************************************
+ # * Pylint Configuration
+ # *********************************************
+ [tool.pylint.'MESSAGES CONTROL']
+ disable = ["all"]
+ enable = [
+ "too-many-arguments",
+ "too-many-locals",
+ "too-many-branches",
+ "too-many-statements",
+ "too-many-nested-blocks",
+ "duplicate-code",
+ "cyclic-import",
+ "dead-code",
+ ]
+
+[tool.pylint.'DESIGN']
+ max-args = 6
+ max-locals = 15
+ max-branches = 12
+
+# *********************************************
+ # * Pytest Configuration
+ # *********************************************
+ [tool.pytest.ini_options]
+ pythonpath = ["."]
+ python_files = "test_*.py"
+ python_functions = "test_*"
+ minversion = "8.0"
+ addopts = "--cov=src"
+ testpaths = ["tests"]
+ markers = ["feature_engineering: marks tests as feature engineering tests"]
+
+# *********************************************
+ # * Coverage Configuration
+ # *********************************************
+ [tool.coverage.run]
+ branch = true
+ source = ["src"]
+
+[tool.coverage.paths]
+ source = ["src"]
+
+[tool.coverage.report]
+ show_missing = true
+ skip_covered = false
+
+[tool.coverage.html]
+ directory = "coverage_html_report"
+
+# *********************************************
+ # * Optional Scripts
+ # *********************************************
+ # [project.scripts]
+ # test = "bash -c 'export ENV=test && pytest --maxfail=1 -q'"
+ # lint = "bash -c 'ruff . && pylint .'"
