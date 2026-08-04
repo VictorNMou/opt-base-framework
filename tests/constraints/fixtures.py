@@ -1,17 +1,13 @@
 import pyomo.environ as pyo
 
-from optframework.core.problem_data import ProblemData
+from optframework.constraints.rules import ConstraintRules
 
 
-class MarkerRule:
-    """Rule fake: marca no modelo que foi chamada."""
+class FakeRules(ConstraintRules):
+    """Rules fake: uma constraint trivial e uma constraint real sobre uma Var pré-existente."""
 
-    def build(self, model: pyo.ConcreteModel, data: ProblemData) -> None:
-        model.add_component("marker_called", pyo.Param(initialize=1))
+    def marker(self, model: object) -> object:
+        return pyo.Constraint.Feasible
 
-
-class SumConstraintRule:
-    """Rule fake: anexa um pyo.Constraint real sobre uma Var pré-existente."""
-
-    def build(self, model: pyo.ConcreteModel, data: ProblemData) -> None:
-        model.add_component("limite", pyo.Constraint(expr=model.x <= 10))
+    def limite(self, model: object) -> bool:
+        return model.x <= 10
