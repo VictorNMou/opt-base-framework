@@ -12,7 +12,11 @@ class _FakeSolver:
         self.labels_used: list[str | None] = []
 
     def solve(
-        self, model: pyo.ConcreteModel, profile: str = "default", label: str | None = None
+        self,
+        model: pyo.ConcreteModel,
+        profile: str = "default",
+        label: str | None = None,
+        data: object | None = None,
     ) -> Result:
         self.profiles_used.append(profile)
         self.labels_used.append(label)

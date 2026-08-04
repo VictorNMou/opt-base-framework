@@ -24,10 +24,13 @@ class Scenario:
 class ScenarioRunner:
     """Resolve múltiplas instâncias do mesmo modelo já montado, sem reconstruí-lo."""
 
-    def __init__(self, model: pyo.ConcreteModel, solver: SolverAdapter) -> None:
-        """Guarda o modelo já construído e o adapter de solver a usar em cada cenário."""
+    def __init__(
+        self, model: pyo.ConcreteModel, solver: SolverAdapter, data: ProblemData | None = None
+    ) -> None:
+        """Guarda o modelo já construído, o adapter de solver e os dados do problema (opcional)."""
         self.model = model
         self.solver = solver
+        self.data = data
 
     def run(self, scenarios: list[Scenario], profile: str = "default") -> dict[str, Result]:
         """Aplica cada cenário e resolve, devolvendo o Result por nome de cenário."""
@@ -36,7 +39,7 @@ class ScenarioRunner:
             self._apply(scenario)
             chosen_profile = scenario.solver_profile or profile
             results[scenario.name] = self.solver.solve(
-                self.model, profile=chosen_profile, label=scenario.name
+                self.model, profile=chosen_profile, label=scenario.name, data=self.data
             )
         return results
 
@@ -94,10 +97,10 @@ class ScenarioLoop(YamlComponentBuilder):
             config = {}
 
         if not config.get("enabled", False):
-            return solver.solve(model, profile=config.get("profile", profile))
+            return solver.solve(model, profile=config.get("profile", profile), data=data)
 
         scenarios = [self._parse_scenario(spec) for spec in self._require(config, "scenarios")]
-        return ScenarioRunner(model, solver).run(
+        return ScenarioRunner(model, solver, data).run(
             scenarios, profile=config.get("profile", profile)
         )
 

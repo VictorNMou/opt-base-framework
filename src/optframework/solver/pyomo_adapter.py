@@ -1,9 +1,10 @@
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import pyomo.environ as pyo
 
+from optframework.core.problem_data import ProblemData
 from optframework.core.yaml_component import YamlComponentBuilder
 from optframework.results.infeasibility import InfeasibilityReport
 from optframework.results.metrics import SolveMetrics
@@ -19,6 +20,25 @@ from optframework.solver.sensitivity import SensitivityAnalyzer
 _CONFIG_DIR = Path(__file__).parent / "config"
 
 
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Mescla override sobre base; dicts aninhados recursam, o resto é substituído por completo."""
+    merged = dict(base)
+    for key, value in override.items():
+        base_value = merged.get(key)
+        if isinstance(base_value, dict) and isinstance(value, dict):
+            merged[key] = _deep_merge(base_value, value)
+        else:
+            merged[key] = value
+    return merged
+
+
+class _Diagnostics(NamedTuple):
+    """Agrupa os dois relatórios diagnósticos opcionais de um solve."""
+
+    infeasibility: InfeasibilityReport | None
+    sensitivity: SensitivityReport | None
+
+
 class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
     """Implementação de SolverAdapter via Pyomo, com solver selecionado por perfil."""
 
@@ -30,10 +50,16 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
         self._results: Result | None = None
 
     def solve(
-        self, model: pyo.ConcreteModel, profile: str = "default", label: str | None = None
+        self,
+        model: pyo.ConcreteModel,
+        profile: str = "default",
+        label: str | None = None,
+        data: ProblemData | None = None,
     ) -> Result:
-        """Resolve o modelo via Pyomo, usando o perfil configurado em model_solver.yaml."""
+        """Resolve via Pyomo; mescla model_solver.yaml do problema (se houver) sobre o default."""
         config = self._load_config(self._config_dir / self._CONFIG_FILENAME)
+        if data is not None:
+            config = _deep_merge(config, self._load_problem_overrides(data))
         profiles = self._require(config, "profiles")
         if profile not in profiles:
             raise KeyError(f"Perfil de solver '{profile}' não encontrado em {self._CONFIG_FILENAME}.")
@@ -50,27 +76,49 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
         if reporter is not None:
             reporter.write_after(model, label)
 
+        diagnostics = self._run_diagnostics(
+            model, config, solver_name, termination_condition, values, label
+        )
+
+        if reporter is not None:
+            if diagnostics.infeasibility is not None:
+                reporter.write_infeasibility(diagnostics.infeasibility, label)
+            if diagnostics.sensitivity is not None:
+                reporter.write_sensitivity(diagnostics.sensitivity, label)
+
+        self._results = Result(
+            termination_condition=termination_condition,
+            values=values,
+            infeasibility=diagnostics.infeasibility,
+            metrics=metrics,
+            sensitivity=diagnostics.sensitivity,
+        )
+        return self._results
+
+    def _run_diagnostics(
+        self,
+        model: pyo.ConcreteModel,
+        config: dict[str, Any],
+        solver_name: str,
+        termination_condition: object,
+        values: dict[tuple[str, Any], Any],
+        label: str | None,
+    ) -> _Diagnostics:
+        """Roda infeasibility e sensitivity (cada um só se aplicável) e agrupa os relatórios."""
         infeasibility_report = self._diagnose_infeasibility(
             model, config.get("infeasibility", {}), solver_name, termination_condition, label
         )
         sensitivity_report = self._analyze_sensitivity(
             model, values, config.get("sensitivity", {}), solver_name, label
         )
+        return _Diagnostics(infeasibility_report, sensitivity_report)
 
-        if reporter is not None:
-            if infeasibility_report is not None:
-                reporter.write_infeasibility(infeasibility_report, label)
-            if sensitivity_report is not None:
-                reporter.write_sensitivity(sensitivity_report, label)
-
-        self._results = Result(
-            termination_condition=termination_condition,
-            values=values,
-            infeasibility=infeasibility_report,
-            metrics=metrics,
-            sensitivity=sensitivity_report,
-        )
-        return self._results
+    def _load_problem_overrides(self, data: ProblemData) -> dict[str, Any]:
+        """Carrega o model_solver.yaml do problema, se existir, para mesclar sobre o default."""
+        try:
+            return self._load_config(self._config_path(data))
+        except FileNotFoundError:
+            return {}
 
     def _run_solver(
         self, model: pyo.ConcreteModel, spec: dict[str, object]
