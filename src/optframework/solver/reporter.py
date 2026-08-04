@@ -4,6 +4,7 @@ from pathlib import Path
 import pyomo.environ as pyo
 
 from optframework.results.infeasibility import InfeasibilityReport
+from optframework.results.sensitivity import SensitivityReport
 
 
 class Reporter:
@@ -27,6 +28,12 @@ class Reporter:
     ) -> Path:
         """Grava o diagnóstico de infeasibilidade (elástico ou IIS nativo) em texto."""
         return self._write(lambda ostream: ostream.write(report.render()), "infeasibility", label)
+
+    def write_sensitivity(
+        self, report: SensitivityReport, label: str | None = None
+    ) -> Path:
+        """Grava o diagnóstico de sensibilidade (duais/custos reduzidos) em texto."""
+        return self._write(lambda ostream: ostream.write(report.render()), "sensitivity", label)
 
     def _write(
         self, dump: Callable[..., None], kind: str, label: str | None
