@@ -45,7 +45,8 @@ def test_build_model_solve_extract_solution_end_to_end(tmp_path: Path) -> None:
         "variables:\n  producao:\n    index: [PRODUTOS]\n    domain: NonNegativeReals\n"
     )
     (tmp_path / "model_constraints.yaml").write_text(
-        "constraints:\n  capacidade:\n    rule: tests.strategy.fixtures.CapacityConstraint\n"
+        "rules_class: tests.strategy.fixtures.FakeRules\n"
+        "constraints:\n  capacidade: {}\n"
     )
     (tmp_path / "model_objective.yaml").write_text(
         "default: maximizar\n"

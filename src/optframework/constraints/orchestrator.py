@@ -1,6 +1,5 @@
 import pyomo.environ as pyo
 
-from optframework.constraints.base import ConstraintRule
 from optframework.core.problem_data import ProblemData
 from optframework.core.yaml_component import YamlComponentBuilder
 
@@ -15,10 +14,13 @@ class Constraints(YamlComponentBuilder):
     ) -> None:
         """Anexa ao modelo as famílias de constraint ativas na configuração."""
         config = self._load_config(self._config_path(data))
+        rules_cls = self._import_rule(self._require(config, "rules_class"))
+        rules = rules_cls(data)
         families = self._require(config, "constraints")
-        for spec in families.values():
+        for name, spec in families.items():
             if not spec.get("enabled", True):
                 continue
-            rule_cls = self._import_rule(self._require(spec, "rule"))
-            rule: ConstraintRule = rule_cls()
-            rule.build(model, data)
+            rule_fn = getattr(rules, name)
+            self._add_component(
+                model, name, pyo.Constraint(rule=rule_fn), overwrite=overwrite
+            )

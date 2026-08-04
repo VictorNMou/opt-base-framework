@@ -1,11 +1,9 @@
-import pyomo.environ as pyo
-import pytest
-
 from optframework.constraints.rules import ConstraintRules
 
 
-def test_build_rule_not_implemented() -> None:
-    rules = ConstraintRules(preprocessed={})
+def test_init_stores_data() -> None:
+    data = object()
 
-    with pytest.raises(NotImplementedError):
-        rules.build_rule(pyo.ConcreteModel(), "capacidade")
+    rules = ConstraintRules(data)
+
+    assert rules.data is data

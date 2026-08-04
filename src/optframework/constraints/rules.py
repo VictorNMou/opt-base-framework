@@ -1,15 +1,9 @@
-from typing import Any
-
-import pyomo.environ as pyo
+from optframework.core.problem_data import ProblemData
 
 
 class ConstraintRules:
-    """Implementa a matemática Pyomo das constraints a partir de dados pré-processados."""
+    """Base para as regras de constraint de um problema — um método por constraint."""
 
-    def __init__(self, preprocessed: dict[str, Any]) -> None:
-        """Recebe as estruturas já prontas do ConstraintsPreprocessor."""
-        self.preprocessed = preprocessed
-
-    def build_rule(self, model: pyo.ConcreteModel, name: str) -> object | None:
-        """Devolve a expressão/regra Pyomo da constraint nomeada, ou None se degenerada."""
-        raise NotImplementedError
+    def __init__(self, data: ProblemData) -> None:
+        """Guarda os dados do problema; disponíveis a cada método via self.data."""
+        self.data = data

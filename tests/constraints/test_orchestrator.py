@@ -9,49 +9,50 @@ from optframework.constraints.orchestrator import Constraints
 
 def test_attach_to_model_calls_enabled_rule(tmp_path: Path) -> None:
     (tmp_path / "model_constraints.yaml").write_text(
+        "rules_class: tests.constraints.fixtures.FakeRules\n"
         "constraints:\n"
-        "  capacidade:\n"
+        "  marker:\n"
         "    enabled: true\n"
-        "    rule: tests.constraints.fixtures.MarkerRule\n"
     )
     data = SimpleNamespace(config_dir=str(tmp_path))
     model = pyo.ConcreteModel()
 
     Constraints().attach_to_model(model, data)
 
-    assert hasattr(model, "marker_called")
+    assert hasattr(model, "marker")
 
 
 def test_attach_to_model_skips_disabled_rule(tmp_path: Path) -> None:
     (tmp_path / "model_constraints.yaml").write_text(
+        "rules_class: tests.constraints.fixtures.FakeRules\n"
         "constraints:\n"
-        "  capacidade:\n"
+        "  marker:\n"
         "    enabled: false\n"
-        "    rule: tests.constraints.fixtures.MarkerRule\n"
     )
     data = SimpleNamespace(config_dir=str(tmp_path))
     model = pyo.ConcreteModel()
 
     Constraints().attach_to_model(model, data)
 
-    assert not hasattr(model, "marker_called")
+    assert not hasattr(model, "marker")
 
 
 def test_attach_to_model_defaults_enabled_to_true(tmp_path: Path) -> None:
     (tmp_path / "model_constraints.yaml").write_text(
-        "constraints:\n  capacidade:\n    rule: tests.constraints.fixtures.MarkerRule\n"
+        "rules_class: tests.constraints.fixtures.FakeRules\n"
+        "constraints:\n  marker: {}\n"
     )
     data = SimpleNamespace(config_dir=str(tmp_path))
     model = pyo.ConcreteModel()
 
     Constraints().attach_to_model(model, data)
 
-    assert hasattr(model, "marker_called")
+    assert hasattr(model, "marker")
 
 
 def test_attach_to_model_invalid_module_raises(tmp_path: Path) -> None:
     (tmp_path / "model_constraints.yaml").write_text(
-        "constraints:\n  capacidade:\n    rule: nonexistent.module.Rule\n"
+        "rules_class: nonexistent.module.Rules\nconstraints:\n  marker: {}\n"
     )
     data = SimpleNamespace(config_dir=str(tmp_path))
     model = pyo.ConcreteModel()
@@ -62,7 +63,8 @@ def test_attach_to_model_invalid_module_raises(tmp_path: Path) -> None:
 
 def test_attach_to_model_rule_builds_real_constraint(tmp_path: Path) -> None:
     (tmp_path / "model_constraints.yaml").write_text(
-        "constraints:\n  limite:\n    rule: tests.constraints.fixtures.SumConstraintRule\n"
+        "rules_class: tests.constraints.fixtures.FakeRules\n"
+        "constraints:\n  limite: {}\n"
     )
     data = SimpleNamespace(config_dir=str(tmp_path))
     model = pyo.ConcreteModel()
