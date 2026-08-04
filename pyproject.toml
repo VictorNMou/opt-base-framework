@@ -28,6 +28,13 @@ license = "MIT"
  "highspy>=1.15.1",
 ]
 
+# *********************************************
+ # * Optional Dependencies (extras)
+ # *********************************************
+ [project.optional-dependencies]
+ gurobi = ["gurobipy>=11.0"]
+ cplex = ["cplex>=22.1"]
+
  # *********************************************
  # * Dependency Groups
  # *********************************************
