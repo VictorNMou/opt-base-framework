@@ -13,3 +13,10 @@ class Sets(YamlComponentBuilder):
         self, model: pyo.ConcreteModel, data: ProblemData, overwrite: bool = False
     ) -> None:
         """Anexa ao ConcreteModel os Sets declarados no YAML."""
+        config = self._load_config(self._config_path(data))
+        sets = self._require(config, "sets")
+        for name, spec in sets.items():
+            members = self._resolve_source(self._require(spec, "source"), data)
+            self._add_component(
+                model, name, pyo.Set(initialize=list(members)), overwrite=overwrite
+            )

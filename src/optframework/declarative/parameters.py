@@ -13,3 +13,11 @@ class Parameters(YamlComponentBuilder):
         self, model: pyo.ConcreteModel, data: ProblemData, overwrite: bool = False
     ) -> None:
         """Anexa ao ConcreteModel os Parameters declarados no YAML."""
+        config = self._load_config(self._config_path(data))
+        parameters = self._require(config, "parameters")
+        for name, spec in parameters.items():
+            values = self._resolve_source(self._require(spec, "source"), data)
+            index_sets = [getattr(model, index_name) for index_name in spec.get("index", [])]
+            mutable = spec.get("mutable", False)
+            param = pyo.Param(*index_sets, initialize=values, mutable=mutable)
+            self._add_component(model, name, param, overwrite=overwrite)
