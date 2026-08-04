@@ -35,7 +35,9 @@ class ScenarioRunner:
         for scenario in scenarios:
             self._apply(scenario)
             chosen_profile = scenario.solver_profile or profile
-            results[scenario.name] = self.solver.solve(self.model, profile=chosen_profile)
+            results[scenario.name] = self.solver.solve(
+                self.model, profile=chosen_profile, label=scenario.name
+            )
         return results
 
     def _apply(self, scenario: Scenario) -> None:

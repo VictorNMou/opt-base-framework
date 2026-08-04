@@ -1,3 +1,7 @@
+report:
+  enabled: false
+  output_dir: reports
+
 profiles:
   default:
     solver_name: appsi_highs
