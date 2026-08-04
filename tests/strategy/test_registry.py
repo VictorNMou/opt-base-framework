@@ -9,6 +9,11 @@ def test_milp_registered_on_package_import() -> None:
     assert registry.get("milp") is MilpStrategy
 
 
+def test_lp_registered_as_alias_of_milp_strategy() -> None:
+    """LP é caso particular de MILP (zero variáveis inteiras/binárias) — mesma classe."""
+    assert registry.get("lp") is MilpStrategy
+
+
 def test_get_unregistered_type_raises_key_error() -> None:
     with pytest.raises(KeyError):
         registry.get("inexistente")
