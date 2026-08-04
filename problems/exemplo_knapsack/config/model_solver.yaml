@@ -1,0 +1,41 @@
+# Opcional — se este arquivo não existisse, o problema usaria só o default do framework
+# (src/optframework/solver/config/model_solver.yaml). O que estiver descomentado aqui faz
+# *deep merge* por cima do default: só a chave declarada é sobrescrita, recursivamente; o
+# resto continua vindo do default sem precisar ser repetido.
+#
+# Abaixo, todas as chaves que o framework aceita (com os valores atuais do default, como
+# referência) — descomente e ajuste só o que este problema realmente precisar mudar.
+
+# report:
+#   enabled: false
+#   output_dir: reports
+
+# infeasibility:
+#   enabled: true
+#   tolerance: 1.0e-6
+#   output_dir: reports
+#   options: {}
+
+# knapsack é 100% binário, então ligar sensibilidade aqui é só ilustrativo: os duais vêm
+# zerados (ver README, seção "Sensibilidade e métricas do solve" — não sobra variável
+# contínua na constraint depois que tudo é fixado).
+sensitivity:
+  enabled: true
+#   options: {}
+
+# profiles:
+#   default:
+#     solver_name: appsi_highs
+#     tee: false
+#     options: {}
+#   optimal:
+#     solver_name: appsi_highs
+#     tee: false
+#     options:
+#       mip_rel_gap: 0.0
+#   faster_not_optimal:
+#     solver_name: appsi_highs
+#     tee: false
+#     options:
+#       time_limit: 10
+#       mip_rel_gap: 0.05
