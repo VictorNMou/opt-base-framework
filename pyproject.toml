@@ -133,7 +133,7 @@ dev = [
  "too-many-nested-blocks",
  "duplicate-code",
  "cyclic-import",
- "dead-code",
+ "unreachable",
  ]
 
 [tool.pylint.'DESIGN']
