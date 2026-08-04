@@ -1,15 +1,54 @@
+from typing import Protocol
+
 import pyomo.environ as pyo
 
 from optframework.core.problem_data import ProblemData
 from optframework.core.yaml_component import YamlComponentBuilder
 
+_SENSE_MAP = {
+    "minimize": pyo.minimize,
+    "maximize": pyo.maximize,
+}
+
+
+class ObjectiveRule(Protocol):
+    """Contrato para uma expressão de função-objetivo do modelo."""
+
+    def build(self, model: pyo.ConcreteModel, data: ProblemData) -> object:
+        """Devolve a expressão Pyomo do objective (não se auto-anexa ao modelo)."""
+        ...
+
 
 class Objective(YamlComponentBuilder):
-    """Anexa a função-objetivo ativa (selecionada por perfil) ao modelo."""
+    """Anexa os objectives declarados em config, ativando só o do perfil escolhido."""
 
     _CONFIG_FILENAME = "model_objective.yaml"
 
     def attach_to_model(
-        self, model: pyo.ConcreteModel, data: ProblemData, profile: str = "default"
+        self,
+        model: pyo.ConcreteModel,
+        data: ProblemData,
+        profile: str | None = None,
+        overwrite: bool = False,
     ) -> None:
-        """Anexa o Objective (nome fixo 'obj') correspondente ao perfil escolhido."""
+        """Anexa todos os objectives declarados e ativa só o do perfil escolhido."""
+        config = self._load_config(self._config_path(data))
+        objectives = self._require(config, "objectives")
+        if profile is None:
+            profile = self._require(config, "default")
+        if profile not in objectives:
+            raise KeyError(f"Perfil de objetivo '{profile}' não encontrado em {self._CONFIG_FILENAME}.")
+
+        for name, spec in objectives.items():
+            if overwrite or not hasattr(model, name):
+                rule_cls = self._import_rule(self._require(spec, "rule"))
+                expr = rule_cls().build(model, data)
+                sense = _SENSE_MAP[spec.get("sense", "minimize")]
+                self._add_component(
+                    model, name, pyo.Objective(expr=expr, sense=sense), overwrite=overwrite
+                )
+            component = getattr(model, name)
+            if name == profile:
+                component.activate()
+            else:
+                component.deactivate()

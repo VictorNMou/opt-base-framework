@@ -1,3 +1,4 @@
+import importlib
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,12 @@ class YamlComponentBuilder:
         if not source.startswith(prefix):
             raise ValueError(f"Fonte inválida '{source}': deve começar com '{prefix}'.")
         return getattr(data, source.removeprefix(prefix))
+
+    def _import_rule(self, dotted_path: str) -> type:
+        """Importa dinamicamente uma classe referenciada em config (`modulo.Classe`)."""
+        module_path, _, class_name = dotted_path.rpartition(".")
+        module = importlib.import_module(module_path)
+        return getattr(module, class_name)
 
     def _add_component(
         self,

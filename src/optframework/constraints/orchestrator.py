@@ -1,5 +1,3 @@
-import importlib
-
 import pyomo.environ as pyo
 
 from optframework.constraints.base import ConstraintRule
@@ -24,9 +22,3 @@ class Constraints(YamlComponentBuilder):
             rule_cls = self._import_rule(self._require(spec, "rule"))
             rule: ConstraintRule = rule_cls()
             rule.build(model, data)
-
-    def _import_rule(self, dotted_path: str) -> type[ConstraintRule]:
-        """Importa dinamicamente a classe ConstraintRule referenciada em config."""
-        module_path, _, class_name = dotted_path.rpartition(".")
-        module = importlib.import_module(module_path)
-        return getattr(module, class_name)

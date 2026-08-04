@@ -76,3 +76,14 @@ def test_add_component_existing_with_overwrite_replaces() -> None:
     )
 
     assert list(model.PRODUTOS) == ["b"]
+
+
+def test_import_rule_resolves_class() -> None:
+    imported = _Builder()._import_rule("optframework.core.yaml_component.YamlComponentBuilder")
+
+    assert imported is YamlComponentBuilder
+
+
+def test_import_rule_missing_module_raises() -> None:
+    with pytest.raises(ModuleNotFoundError):
+        _Builder()._import_rule("nonexistent.module.Rule")
