@@ -32,10 +32,38 @@ configuração YAML do problema:
 | `Solver` | Resolve via `pyo.SolverFactory` | Perfis (`default`/`optimal`/`faster_not_optimal`) em config de nível framework, usando [HiGHS](https://highs.dev/) (`highspy`, sem binário de sistema) |
 | `ScenarioLoop` | Resolve a mesma instância várias vezes, mutando parâmetros/ativações | Opcional, config-driven (`model_scenarios.yaml`) |
 | `Reporter` | Snapshots de texto do modelo (`pprint` antes / `display` depois) | Opcional, ligado por config (`report.enabled`) |
+| Diagnóstico de infeasibilidade | Aponta candidatas a causa quando o solve dá infeasible | Automático (`infeasibility.enabled`, default `true`); analisador escolhido por `solver/infeasibility/registry.py` — ponto de extensão análogo ao de `MilpStrategy` |
 | `MilpStrategy` | `build_model` → `solve` → `extract_solution` | Registrada em `strategy/registry.py` sob `optimization_type="milp"` — ponto de extensão para CP/metaheurísticas futuras |
 
 `Model.build()` (`core/model.py`) monta tudo na ordem
 `sets → parameters → variables → constraints → objective`.
+
+## Diagnóstico de infeasibilidade
+
+Quando `PyomoAdapter.solve()` recebe um `termination_condition` infeasible, ele dispara
+automaticamente um analisador de infeasibilidade e anexa o resultado a `result.infeasibility`
+(controlado por `infeasibility.enabled` em `model_solver.yaml`, ligado por padrão). Como
+`result.values` vira `{}` nesse caso, quem consome o resultado deve checar
+`result.is_infeasible` antes de indexar `values`.
+
+O analisador é escolhido automaticamente pelo `solver_name` do profile ativo, via
+`solver/infeasibility/registry.py` (mesmo padrão de extensão de `strategy/registry.py`):
+
+| Solver | Diagnóstico | Como |
+|---|---|---|
+| Gurobi | IIS nativo (`Model.computeIIS()`) | `pyomo.contrib.iis.write_iis`, grava `.ilp`; extra opcional `uv pip install .[gurobi]` |
+| CPLEX | Conflict refiner nativo | `pyomo.contrib.iis.write_iis`, grava `.lp`; extra opcional `uv pip install .[cplex]` |
+| HiGHS, SCIP, outros | Relaxamento elástico (Chinneck) | Injeta slack em toda constraint ativa e minimiza o total — candidatas ordenadas por magnitude de slack em `result.infeasibility.violations` |
+
+SCIP hoje **não** tem IIS nativo exposto em Python — o core do SCIP 10 ganhou `SCIPgenerateIIS()`,
+mas o PySCIPOpt ainda não wrappa isso ([gap aberto](https://github.com/scipopt/PySCIPOpt/discussions/854)),
+por isso cai no relaxamento elástico junto com o HiGHS.
+
+`result.infeasibility.suspected_bound_conflict=True` sinaliza que o relaxamento elástico não
+resolveu mesmo com slack ilimitado — a causa provável é bound/domínio de variável ou `fix()`,
+não uma constraint geral (o relaxamento só toca constraints, nunca bounds). Extensões fora de
+escopo por ora: parsear o `.ilp`/`.lp` nativo de volta em nomes estruturados, e IIS mínimo via
+deleção iterativa de constraints (o relaxamento elástico reporta candidatas, não a causa única).
 
 ## Como criar um problema novo
 
@@ -50,7 +78,7 @@ problems/<nome>/
 │   ├── model_constraints.yaml     # rules_class: problems.<nome>.rules.<Nome>Rules
 │   └── model_objective.yaml       # rules_class: problems.<nome>.rules.<Nome>Objectives
 ├── data_loader.py                 # dataclass <Nome>Data + load_data() -> <Nome>Data
-├── rules.py                       # <Nome>Rules(ConstraintRules), <Nome>Objectives(ObjectiveRules)
+├── rules.py                       # <Nome>Rules (constructor guarda self.data), <Nome>Objectives(ObjectiveRules)
 └── run.py                         # main(): load_data -> MilpStrategy -> imprime/reporta
 ```
 
@@ -60,7 +88,7 @@ problems/<nome>/
 
 ```bash
 uv sync                          # instala dependências (grupos test + dev por padrão)
-uv run pytest                    # testes (cobertura 100% em src/optframework/)
+uv run pytest                    # testes (cobertura ~100% em src/optframework/)
 uv run ruff check .              # lint
 uv run pylint src problems tests # complexidade/duplicação (Ruff não cobre)
 ```
