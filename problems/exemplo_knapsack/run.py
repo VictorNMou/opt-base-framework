@@ -9,6 +9,12 @@ def main() -> None:
 
     model = strategy.build_model(data)
     result = strategy.solve(model)
+
+    if result.is_infeasible:
+        print("Status:", result.termination_condition)
+        print(result.infeasibility.render())
+        return
+
     solution = strategy.extract_solution(result)
 
     selecionados = [
