@@ -59,7 +59,7 @@ def test_build_model_solve_extract_solution_end_to_end(tmp_path: Path) -> None:
     strategy = MilpStrategy()
 
     model = strategy.build_model(data)
-    result = strategy.solve(model)
+    result = strategy.solve(model, data)
     solution = strategy.extract_solution(result)
 
     assert result.termination_condition == pyo.TerminationCondition.optimal

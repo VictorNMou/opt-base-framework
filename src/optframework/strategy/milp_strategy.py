@@ -15,9 +15,9 @@ class MilpStrategy:
         """Monta o modelo MILP via Model."""
         return Model(data).build()
 
-    def solve(self, model: pyo.ConcreteModel) -> Result:
-        """Resolve o modelo via PyomoAdapter."""
-        return PyomoAdapter().solve(model)
+    def solve(self, model: pyo.ConcreteModel, data: ProblemData) -> Result:
+        """Resolve o modelo via PyomoAdapter, mesclando o model_solver.yaml do problema se existir."""
+        return PyomoAdapter().solve(model, data=data)
 
     def extract_solution(self, result: Result) -> dict[str, Any]:
         """Reagrupa Result.values (chave (nome, índice)) por variável."""

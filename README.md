@@ -29,7 +29,7 @@ configuração YAML do problema:
 |---|---|---|
 | `Sets`/`Parameters`/`Variables` | Metadados puros (índices, domínio, fonte de dado) | 100% YAML — sem código Python por problema |
 | `Constraints`/`Objective` | Matemática Pyomo (expressões) | Uma classe `Rules` por problema, um **método nomeado** por constraint/objective |
-| `Solver` | Resolve via `pyo.SolverFactory` | Perfis (`default`/`optimal`/`faster_not_optimal`) em config de nível framework, usando [HiGHS](https://highs.dev/) (`highspy`, sem binário de sistema) |
+| `Solver` | Resolve via `pyo.SolverFactory` | Perfis (`default`/`optimal`/`faster_not_optimal`) em `model_solver.yaml` de nível framework, usando [HiGHS](https://highs.dev/) (`highspy`, sem binário de sistema); um `model_solver.yaml` opcional em `problems/<nome>/config/` faz *deep merge* por cima (só as chaves declaradas sobrescrevem, recursivamente) |
 | `ScenarioLoop` | Resolve a mesma instância várias vezes, mutando parâmetros/ativações | Opcional, config-driven (`model_scenarios.yaml`) |
 | `Reporter` | Snapshots de texto do modelo (`pprint` antes / `display` depois) | Opcional, ligado por config (`report.enabled`) |
 | Diagnóstico de infeasibilidade | Aponta candidatas a causa quando o solve dá infeasible | Automático (`infeasibility.enabled`, default `true`); analisador escolhido por `solver/infeasibility/registry.py` — ponto de extensão análogo ao de `MilpStrategy` |
@@ -48,6 +48,12 @@ automaticamente um analisador de infeasibilidade e anexa o resultado a `result.i
 (controlado por `infeasibility.enabled` em `model_solver.yaml`, ligado por padrão). Como
 `result.values` vira `{}` nesse caso, quem consome o resultado deve checar
 `result.is_infeasible` antes de indexar `values`.
+
+Toda config de `model_solver.yaml` (perfis, `report`, `infeasibility`, `sensitivity`) segue a
+mesma regra de precedência: se `problems/<nome>/config/model_solver.yaml` existir, suas chaves
+sobrescrevem as do default do framework recursivamente — o que o problema não declarar
+continua herdando do default. `MilpStrategy.solve(model, data)` passa `data` adiante pra
+`PyomoAdapter` fazer esse merge; é por isso que `solve()` agora exige `data`, não só `model`.
 
 O analisador é escolhido automaticamente pelo `solver_name` do profile ativo, via
 `solver/infeasibility/registry.py` (mesmo padrão de extensão de `strategy/registry.py`):
@@ -109,10 +115,11 @@ problems/<nome>/
 │   ├── model_parameters.yaml
 │   ├── model_variables.yaml
 │   ├── model_constraints.yaml     # rules_class: problems.<nome>.rules.<Nome>Rules
-│   └── model_objective.yaml       # rules_class: problems.<nome>.rules.<Nome>Objectives
+│   ├── model_objective.yaml       # rules_class: problems.<nome>.rules.<Nome>Objectives
+│   └── model_solver.yaml          # opcional — deep merge sobre o default do framework
 ├── data_loader.py                 # dataclass <Nome>Data + load_data() -> <Nome>Data
 ├── rules.py                       # <Nome>Rules, <Nome>Objectives (cada um com constructor guardando self.data)
-└── run.py                         # main(): load_data -> MilpStrategy -> imprime/reporta
+└── run.py                         # main(): load_data -> MilpStrategy -> strategy.solve(model, data) -> imprime/reporta
 ```
 
 `problems/exemplo_knapsack/` é a referência completa — copie a estrutura e adapte.

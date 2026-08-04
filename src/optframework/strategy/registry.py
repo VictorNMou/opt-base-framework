@@ -13,7 +13,7 @@ class OptimizationStrategy(Protocol):
         """Monta o modelo para esta classe de otimização."""
         ...
 
-    def solve(self, model: pyo.ConcreteModel) -> Result:
+    def solve(self, model: pyo.ConcreteModel, data: ProblemData) -> Result:
         """Resolve o modelo montado."""
         ...
 
