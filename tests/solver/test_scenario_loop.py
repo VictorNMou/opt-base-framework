@@ -2,6 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pyomo.environ as pyo
+import pytest
 
 from optframework.solver.pyomo_adapter import PyomoAdapter
 from optframework.solver.scenario import ScenarioLoop
@@ -57,3 +58,28 @@ def test_enabled_runs_loop_with_different_results(tmp_path: Path) -> None:
 
     assert set(results.keys()) == {"baixa", "alta"}
     assert sum(results["alta"].values.values()) > sum(results["baixa"].values.values())
+
+
+def test_warm_start_enabled_reuses_previous_solution_without_breaking_results(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "model_scenarios.yaml").write_text(
+        "enabled: true\n"
+        "profile: default\n"
+        "warm_start: true\n"
+        "scenarios:\n"
+        "  - name: baixa\n"
+        "    param_overrides:\n"
+        "      capacidade: {1: 5, 2: 5}\n"
+        "  - name: alta\n"
+        "    param_overrides:\n"
+        "      capacidade: {1: 50, 2: 50}\n"
+    )
+    data = SimpleNamespace(config_dir=str(tmp_path))
+    model = _new_model()
+
+    results = ScenarioLoop().run(model, data, PyomoAdapter())
+
+    assert set(results.keys()) == {"baixa", "alta"}
+    assert sum(results["baixa"].values.values()) == pytest.approx(10.0)
+    assert sum(results["alta"].values.values()) == pytest.approx(100.0)
