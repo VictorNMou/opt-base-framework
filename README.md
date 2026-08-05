@@ -1,8 +1,11 @@
 # Opt Base Framework
 
-Framework Python para problemas de otimização (LP/MILP via [Pyomo](https://www.pyomo.org/)),
-com núcleo genérico *config-driven* e reaplicável para qualquer problema novo sem tocar no
-código do framework.
+Framework Python para problemas de otimização via [Pyomo](https://www.pyomo.org/) — LP/MILP
+de origem, mas o núcleo nunca assume linearidade (nem `Rules`, nem diagnóstico de
+infeasibilidade, nem sensibilidade inspecionam a forma da expressão), então NLP funciona
+trocando só o `solver_name` (ver `exemplo_precificacao/`, com [ipopt](https://coin-or.github.io/Ipopt/)).
+Núcleo genérico *config-driven*, reaplicável para qualquer problema novo sem tocar no código
+do framework.
 
 ## Quickstart
 
@@ -37,7 +40,7 @@ configuração YAML do problema:
 | Sensibilidade | Duais/custos reduzidos via fix-and-resolve | Opcional, config-driven (`sensitivity.enabled`, default `false` — custa um resolve extra); `solver/sensitivity.py` |
 | Métricas do solve | Tempo de parede, bounds, gap | Automático (sempre populado, custo zero); anexado a `result.metrics` |
 | Export JSON | `Result` + solução → dict/JSON plano | Chamada explícita (`results/export.py`), não automática — ponto de integração com camadas de workflow externas |
-| `MilpStrategy` | `build_model` → `solve` → `extract_solution` | Registrada em `strategy/registry.py` sob `optimization_type="milp"` **e** `"lp"` (LP é caso particular de MILP — zero variáveis inteiras/binárias, mesma classe) — ponto de extensão para CP/metaheurísticas futuras |
+| `MilpStrategy` | `build_model` → `solve` → `extract_solution` | Registrada em `strategy/registry.py` sob `optimization_type="milp"`, `"lp"` **e** `"nlp"` — a classe não assume linearidade em nenhum passo, então o mesmo `build_model`/`solve`/`extract_solution` serve pra NLP só trocando `solver_name`; ponto de extensão para CP/metaheurísticas futuras |
 
 `Model.build()` (`core/model.py`) monta tudo na ordem
 `sets → parameters → variables → constraints → objective`.
@@ -122,12 +125,49 @@ os valores da última solução já ficam retidos nas `Var` do modelo entre um c
 `warm_start: true` em `model_scenarios.yaml` (sibling de `enabled`/`profile`/`scenarios`, default
 `false`) só precisa pedir pro solver usar o que já está lá: repassa `warmstart=True` pro
 `SolverAdapter.solve()`, que por sua vez repassa pro `opt.solve(..., warmstart=True)` do Pyomo —
-API padrão suportada tanto pelas interfaces clássicas (CBC/GLPK) quanto pelas `appsi_*`
-(HiGHS/Gurobi/CPLEX), sem lógica específica de solver no framework. Útil em sweeps de parâmetro
-onde cenários consecutivos tendem a ter soluções próximas (ex.: variar capacidade aos poucos) —
-o solver usa o ponto anterior como dica de partida, não como restrição; um ponto inválido pro
+suportado pelas interfaces `appsi_*` (HiGHS/Gurobi/CPLEX). Útil em sweeps de parâmetro onde
+cenários consecutivos tendem a ter soluções próximas (ex.: variar capacidade aos poucos) — o
+solver usa o ponto anterior como dica de partida, não como restrição; um ponto inválido pro
 cenário novo é descartado/reparado pelo solver, nunca trava o solve. No primeiro cenário do
 loop, `warmstart=True` é inofensivo (não há valor anterior pra reaproveitar).
+
+**A chave só é enviada quando `warm_start` é `True`** — alguns solvers clássicos via NL-writer
+(ex.: `ipopt`) rejeitam `warmstart` mesmo como `False`, porque não é uma opção que existe pra
+eles (esses solvers já usam o valor atual de cada `Var` como ponto de partida automaticamente,
+sem precisar de flag nenhuma — ver seção NLP abaixo). `_run_solver` só inclui a chave no
+`opt.solve()` quando `warmstart=True` de fato, então o caminho default (sem warm start) continua
+funcionando em qualquer solver.
+
+## Exemplo NLP: precificação com elasticidade própria e cruzada
+
+`problems/exemplo_precificacao/` prova que o núcleo não assume linearidade: mesmo
+`Model.build()`/`MilpStrategy` (registrada também sob `optimization_type="nlp"`), só trocando o
+`solver_name` do profile `default` pra `ipopt` no `model_solver.yaml` do problema (deep merge
+por cima do `appsi_highs` do framework — HiGHS resolve LP/MIP, não NLP geral). Diferente do
+HiGHS (`highspy`, bundlado, sem binário de sistema), `ipopt` é chamado pelo Pyomo como
+executável externo — precisa estar instalado à parte (`conda install -c conda-forge ipopt`,
+ou via apt/brew) e visível no `PATH`; sem ele, os testes de `tests/problems/exemplo_precificacao/`
+que dependem de solve real são pulados automaticamente (`pytest.mark.skipif`), não falham.
+
+O problema: 3 produtos substitutos (linha básico/intermediário/premium), demanda por
+elasticidade constante —
+`q_i(p) = q0_i · (p_i/p0_i)^{e_ii} · ∏_{j≠i} (p_j/p0_j)^{e_ij}`, `e_ii` (própria) negativa,
+`e_ij` (cruzada) positiva — maximizando margem total sujeita a uma constraint de capacidade de
+produção **não-linear** (soma das demandas, que são não-lineares em `p`). A `Rules` única
+(`PrecificacaoRules`) é reaproveitada tanto pelo `model_constraints.yaml` quanto pelo
+`model_objective.yaml`, já que os dois dependem da mesma função de demanda — nada no framework
+exige classes diferentes para constraint e objective.
+
+```bash
+uv run python -m problems.exemplo_precificacao.run
+```
+
+Duas coisas que **não** têm equivalente em `model_variables.yaml` (que só declara
+`index`/`domain`) e por isso ficam no `run.py` do problema, não no framework: o ponto inicial
+(`ipopt` precisa de um chute estritamente positivo) e uma faixa de preço (±50% do preço-base).
+Sem faixa, o problema não tem ótimo finito — elasticidade cruzada positiva deixa a margem
+crescer sem limite se um preço qualquer for para o infinito, inflando a demanda dos outros
+produtos por substituição.
 
 ## Integração com plataformas externas (ex.: Databricks)
 

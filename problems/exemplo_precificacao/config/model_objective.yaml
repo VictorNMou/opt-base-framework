@@ -1,0 +1,5 @@
+rules_class: problems.exemplo_precificacao.rules.PrecificacaoRules
+default: margem_total
+objectives:
+  margem_total:
+    sense: maximize

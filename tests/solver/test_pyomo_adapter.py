@@ -6,6 +6,8 @@ import pytest
 
 from optframework.solver.pyomo_adapter import PyomoAdapter
 
+_IPOPT_AVAILABLE = pyo.SolverFactory("ipopt").available(exception_flag=False)
+
 
 def _new_model() -> pyo.ConcreteModel:
     model = pyo.ConcreteModel()
@@ -48,6 +50,22 @@ def test_warmstart_true_reuses_values_left_by_previous_solve_on_same_model() -> 
 
     assert result.termination_condition == pyo.TerminationCondition.optimal
     assert result.values[("y", None)] == pytest.approx(10.0)
+
+
+@pytest.mark.skipif(not _IPOPT_AVAILABLE, reason="ipopt não instalado neste ambiente")
+def test_default_solve_works_with_classic_asl_solver_like_ipopt(tmp_path: Path) -> None:
+    """Regressão: warmstart (mesmo False) quebrava solvers ASL clássicos (ipopt) via nl_writer."""
+    (tmp_path / "model_solver.yaml").write_text(
+        "profiles:\n  default:\n    solver_name: ipopt\n    tee: false\n    options: {}\n"
+    )
+    model = pyo.ConcreteModel()
+    model.x = pyo.Var(domain=pyo.NonNegativeReals, initialize=1.0)
+    model.obj = pyo.Objective(expr=(model.x - 2) ** 2)
+
+    result = PyomoAdapter(config_dir=tmp_path).solve(model)
+
+    assert result.termination_condition == pyo.TerminationCondition.optimal
+    assert result.values[("x", None)] == pytest.approx(2.0, abs=1e-4)
 
 
 def test_solve_indexed_var_uses_native_name_index_key() -> None:
