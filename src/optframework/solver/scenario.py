@@ -25,12 +25,17 @@ class ScenarioRunner:
     """Resolve múltiplas instâncias do mesmo modelo já montado, sem reconstruí-lo."""
 
     def __init__(
-        self, model: pyo.ConcreteModel, solver: SolverAdapter, data: ProblemData | None = None
+        self,
+        model: pyo.ConcreteModel,
+        solver: SolverAdapter,
+        data: ProblemData | None = None,
+        warm_start: bool = False,
     ) -> None:
-        """Guarda o modelo já construído, o adapter de solver e os dados do problema (opcional)."""
+        """Guarda modelo, solver e dados; `warm_start=True` reaproveita no próximo solve os valores que o cenário anterior deixou no `model`."""
         self.model = model
         self.solver = solver
         self.data = data
+        self.warm_start = warm_start
 
     def run(self, scenarios: list[Scenario], profile: str = "default") -> dict[str, Result]:
         """Aplica cada cenário e resolve, devolvendo o Result por nome de cenário."""
@@ -39,7 +44,11 @@ class ScenarioRunner:
             self._apply(scenario)
             chosen_profile = scenario.solver_profile or profile
             results[scenario.name] = self.solver.solve(
-                self.model, profile=chosen_profile, label=scenario.name, data=self.data
+                self.model,
+                profile=chosen_profile,
+                label=scenario.name,
+                data=self.data,
+                warmstart=self.warm_start,
             )
         return results
 
@@ -100,7 +109,8 @@ class ScenarioLoop(YamlComponentBuilder):
             return solver.solve(model, profile=config.get("profile", profile), data=data)
 
         scenarios = [self._parse_scenario(spec) for spec in self._require(config, "scenarios")]
-        return ScenarioRunner(model, solver, data).run(
+        warm_start = config.get("warm_start", False)
+        return ScenarioRunner(model, solver, data, warm_start=warm_start).run(
             scenarios, profile=config.get("profile", profile)
         )
 

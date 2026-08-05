@@ -31,7 +31,7 @@ configuração YAML do problema:
 | `Sets`/`Parameters`/`Variables` | Metadados puros (índices, domínio, fonte de dado) | 100% YAML — sem código Python por problema |
 | `Constraints`/`Objective` | Matemática Pyomo (expressões) | Uma classe `Rules` por problema, um **método nomeado** por constraint/objective |
 | `Solver` | Resolve via `pyo.SolverFactory` | Perfis (`default`/`optimal`/`faster_not_optimal`) em `model_solver.yaml` de nível framework, usando [HiGHS](https://highs.dev/) (`highspy`, sem binário de sistema); um `model_solver.yaml` opcional em `problems/<nome>/config/` faz *deep merge* por cima (só as chaves declaradas sobrescrevem, recursivamente) |
-| `ScenarioLoop` | Resolve a mesma instância várias vezes, mutando parâmetros/ativações | Opcional, config-driven (`model_scenarios.yaml`) |
+| `ScenarioLoop` | Resolve a mesma instância várias vezes, mutando parâmetros/ativações | Opcional, config-driven (`model_scenarios.yaml`); `warm_start: true` reaproveita a solução do cenário anterior no próximo solve |
 | `Reporter` | Snapshots de texto do modelo (`pprint` antes / `display` depois) | Opcional, ligado por config (`report.enabled`) |
 | Diagnóstico de infeasibilidade | Aponta candidatas a causa quando o solve dá infeasible | Automático (`infeasibility.enabled`, default `true`); analisador escolhido por `solver/infeasibility/registry.py` — ponto de extensão análogo ao de `MilpStrategy` |
 | Sensibilidade | Duais/custos reduzidos via fix-and-resolve | Opcional, config-driven (`sensitivity.enabled`, default `false` — custa um resolve extra); `solver/sensitivity.py` |
@@ -113,6 +113,21 @@ não sobra margem contínua pra precificar a constraint. Isso é esperado, não 
 `result.metrics` é sempre populado (tempo de parede medido em Python, `lower_bound`/
 `upper_bound`/`gap` do schema padrão do Pyomo — `None` quando o solver não os populou, ex. em
 infeasible). `gap` é magnitude pura, não um gap assinado por sentido de otimização.
+
+## Warm start em cenários
+
+`ScenarioRunner`/`ScenarioLoop` resolvem a mesma instância de modelo várias vezes sem
+reconstruí-la — o `pyo.ConcreteModel` é reutilizado ao longo de todo o loop de cenários, então
+os valores da última solução já ficam retidos nas `Var` do modelo entre um cenário e o próximo.
+`warm_start: true` em `model_scenarios.yaml` (sibling de `enabled`/`profile`/`scenarios`, default
+`false`) só precisa pedir pro solver usar o que já está lá: repassa `warmstart=True` pro
+`SolverAdapter.solve()`, que por sua vez repassa pro `opt.solve(..., warmstart=True)` do Pyomo —
+API padrão suportada tanto pelas interfaces clássicas (CBC/GLPK) quanto pelas `appsi_*`
+(HiGHS/Gurobi/CPLEX), sem lógica específica de solver no framework. Útil em sweeps de parâmetro
+onde cenários consecutivos tendem a ter soluções próximas (ex.: variar capacidade aos poucos) —
+o solver usa o ponto anterior como dica de partida, não como restrição; um ponto inválido pro
+cenário novo é descartado/reparado pelo solver, nunca trava o solve. No primeiro cenário do
+loop, `warmstart=True` é inofensivo (não há valor anterior pra reaproveitar).
 
 ## Integração com plataformas externas (ex.: Databricks)
 
