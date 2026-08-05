@@ -18,9 +18,11 @@ class Constraints(YamlComponentBuilder):
         rules = rules_cls(data)
         families = self._require(config, "constraints")
         for name, spec in families.items():
+            spec = spec or {}
             if not spec.get("enabled", True):
                 continue
             rule_fn = getattr(rules, name)
+            index_sets = [getattr(model, index_name) for index_name in spec.get("index", [])]
             self._add_component(
-                model, name, pyo.Constraint(rule=rule_fn), overwrite=overwrite
+                model, name, pyo.Constraint(*index_sets, rule=rule_fn), overwrite=overwrite
             )

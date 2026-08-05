@@ -11,6 +11,10 @@ class FakeRules:
     def capacidade(self, model: pyo.ConcreteModel) -> bool:
         return sum(model.producao[p] for p in model.PRODUTOS) <= model.capacidade_max
 
+    def limite_individual(self, model: pyo.ConcreteModel, produto: str) -> bool:
+        """Constraint indexada: cada produto isolado não pode passar da capacidade total."""
+        return model.producao[produto] <= model.capacidade_max
+
 
 class FakeObjectives:
     """Rules fake: maximiza a soma da produção."""
