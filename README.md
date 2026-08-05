@@ -33,7 +33,7 @@ configuração YAML do problema:
 | Validação de config | Checa os 5 YAMLs do problema antes de montar qualquer `pyo.Constraint` | Automática, sempre ligada, roda no início de `Model.build()`; agrega **todos** os problemas encontrados num único `ConfigValidationError` em vez de falhar um de cada vez; `core/validation.py` |
 | `Sets`/`Parameters`/`Variables` | Metadados puros (índices, domínio, fonte de dado) | 100% YAML — sem código Python por problema |
 | `Constraints`/`Objective` | Matemática Pyomo (expressões) | Uma classe `Rules` por problema, um **método nomeado** por constraint/objective |
-| `Solver` | Resolve via `pyo.SolverFactory` | Perfis (`default`/`optimal`/`faster_not_optimal`) em `model_solver.yaml` de nível framework, usando [HiGHS](https://highs.dev/) (`highspy`, sem binário de sistema); um `model_solver.yaml` opcional em `problems/<nome>/config/` faz *deep merge* por cima (só as chaves declaradas sobrescrevem, recursivamente) |
+| `Solver` | Resolve via `pyo.SolverFactory` | Perfis (`default`/`optimal`/`faster_not_optimal`) em `model_solver.yaml` de nível framework, usando [HiGHS](https://highs.dev/) (`highspy`, sem binário de sistema); um `model_solver.yaml` opcional em `problems/<nome>/config/` faz *deep merge* por cima (só as chaves declaradas sobrescrevem, recursivamente); `solve_compat.py` descobre e cacheia, por `solver_name`, quais kwargs cada interface aceita |
 | `ScenarioLoop` | Resolve a mesma instância várias vezes, mutando parâmetros/ativações | Opcional, config-driven (`model_scenarios.yaml`); `warm_start: true` reaproveita a solução do cenário anterior no próximo solve |
 | `Reporter` | Snapshots de texto do modelo (`pprint` antes / `display` depois) | Opcional, ligado por config (`report.enabled`) |
 | Diagnóstico de infeasibilidade | Aponta candidatas a causa quando o solve dá infeasible | Automático (`infeasibility.enabled`, default `true`); analisador escolhido por `solver/infeasibility/registry.py` — ponto de extensão análogo ao de `MilpStrategy` |
@@ -131,12 +131,33 @@ solver usa o ponto anterior como dica de partida, não como restrição; um pont
 cenário novo é descartado/reparado pelo solver, nunca trava o solve. No primeiro cenário do
 loop, `warmstart=True` é inofensivo (não há valor anterior pra reaproveitar).
 
-**A chave só é enviada quando `warm_start` é `True`** — alguns solvers clássicos via NL-writer
-(ex.: `ipopt`) rejeitam `warmstart` mesmo como `False`, porque não é uma opção que existe pra
-eles (esses solvers já usam o valor atual de cada `Var` como ponto de partida automaticamente,
-sem precisar de flag nenhuma — ver seção NLP abaixo). `_run_solver` só inclui a chave no
-`opt.solve()` quando `warmstart=True` de fato, então o caminho default (sem warm start) continua
-funcionando em qualquer solver.
+**Nem todo solver aceita a chave `warmstart`** — alguns solvers clássicos via NL-writer (ex.:
+`ipopt`) e o `cyipopt` (`pyomo.contrib.pynumero`) rejeitam a chamada inteira se receberem
+`warmstart`, mesmo como `False` — não é uma opção que existe pra eles (esses solvers já usam o
+valor atual de cada `Var` como ponto de partida automaticamente, sem precisar de flag nenhuma —
+ver seção NLP abaixo). Isso não é um caso isolado: `symbolic_solver_labels` (usado sempre,
+independente de warm start) quebra o `cyipopt` do mesmo jeito. `_run_solver` não hardcoda esse
+conhecimento por solver — ver `solver/solve_compat.py` na próxima seção.
+
+## Compatibilidade de kwargs entre solvers
+
+Cada interface de solver do Pyomo aceita um conjunto diferente de kwargs em `.solve()`: as
+`appsi_*` (HiGHS/Gurobi/CPLEX) são permissivas, mas `ipopt` clássico e `cyipopt` usam um
+`ConfigDict` estrito que rejeita a chamada inteira se receber qualquer chave que não declaram —
+mesmo como `False`. Não dá pra saber de antemão sem tentar, e não faz sentido manter uma lista
+hardcoded de "solver X aceita Y" no framework (ela ficaria desatualizada a cada solver novo).
+
+`solve_dropping_unsupported_kwargs()` (`solver/solve_compat.py`) generaliza isso: tenta o
+`opt.solve()` com o conjunto completo desejado (`tee`/`symbolic_solver_labels`/`load_solutions`/
+`warmstart`); se o solver rejeitar uma chave (erro estável do Pyomo,
+`ConfigDict.set_value`), remove só essa chave e tenta de novo — em loop, até sobrar um conjunto
+que o solver aceita. O resultado é cacheado por `solver_name` (processo inteiro, em memória),
+então só a primeira chamada por solver paga o custo de descobrir isso; as próximas já saem só
+com as chaves certas. **Uma chave nunca é descartada silenciosamente**: `load_solutions=False` é
+a única da qual a corretude do framework depende (permite tratar infeasible sem o `opt.solve()`
+explodir sozinho) — se ela for rejeitada, o erro original propaga em vez de continuar errado.
+Erros sem relação com kwargs (`ValueError` de outra origem, ou qualquer outra exceção) nunca são
+engolidos — só o padrão específico de "chave não reconhecida" é tratado.
 
 ## Exemplo NLP: precificação com elasticidade própria e cruzada
 
