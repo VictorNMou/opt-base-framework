@@ -14,7 +14,7 @@ name = "opt-base-framework"
 version = "0.2.0"
 description = "Framework Python reaplicável para problemas de otimização LP/MILP (Pyomo)"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 authors = [{ name = "Victor Moura", email = "vimoura@solarbr.com.br" }]
 license = "MIT"
 
