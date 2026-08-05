@@ -5,7 +5,7 @@ from optframework.core.yaml_component import YamlComponentBuilder
 
 
 class Constraints(YamlComponentBuilder):
-    """Decide, por família declarada em config, se está ligada e anexa a constraint ao modelo."""
+    """Decide, por família declarada em config, se está ligada (bool ou 'data.<atributo>') e anexa a constraint ao modelo."""
 
     _CONFIG_FILENAME = "model_constraints.yaml"
 
@@ -19,7 +19,13 @@ class Constraints(YamlComponentBuilder):
         families = self._require(config, "constraints")
         for name, spec in families.items():
             spec = spec or {}
-            if not spec.get("enabled", True):
+            enabled_spec = spec.get("enabled", True)
+            enabled = (
+                self._resolve_source(enabled_spec, data)
+                if isinstance(enabled_spec, str)
+                else enabled_spec
+            )
+            if not enabled:
                 continue
             rule_fn = getattr(rules, name)
             index_sets = [getattr(model, index_name) for index_name in spec.get("index", [])]

@@ -33,7 +33,7 @@ def validate_problem_config(data: ProblemData) -> None:
     if variables_config is not None:
         _validate_variables(variables_config, declared_sets, errors)
     if constraints_config is not None:
-        _validate_constraints(constraints_config, declared_sets, errors)
+        _validate_constraints(constraints_config, data, declared_sets, errors)
     if objective_config is not None:
         _validate_objective(objective_config, errors)
 
@@ -174,9 +174,9 @@ def _validate_rule_method(
 
 
 def _validate_constraints(
-    config: dict[str, Any], declared_sets: set[str], errors: list[str]
+    config: dict[str, Any], data: ProblemData, declared_sets: set[str], errors: list[str]
 ) -> None:
-    """Valida 'rules_class' e a seção 'constraints', pulando famílias desabilitadas."""
+    """Valida 'rules_class' e a seção 'constraints', pulando famílias estaticamente desabilitadas."""
     rules_cls = _import_rule(config.get("rules_class"), "model_constraints.yaml", errors)
     families = _require_dict(config, "constraints", "model_constraints.yaml", errors)
     if families is None:
@@ -185,7 +185,10 @@ def _validate_constraints(
         spec = spec or {}
         context = f"model_constraints.yaml: constraint '{name}'"
         _validate_index(spec.get("index", []), declared_sets, context, errors)
-        if not spec.get("enabled", True):
+        enabled_spec = spec.get("enabled", True)
+        if isinstance(enabled_spec, str):
+            _validate_source(enabled_spec, data, context, errors)
+        elif not enabled_spec:
             continue
         _validate_rule_method(rules_cls, name, "model_constraints.yaml", "constraint", errors)
 

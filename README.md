@@ -32,7 +32,7 @@ configuração YAML do problema:
 |---|---|---|
 | Validação de config | Checa os 5 YAMLs do problema antes de montar qualquer `pyo.Constraint` | Automática, sempre ligada, roda no início de `Model.build()`; agrega **todos** os problemas encontrados num único `ConfigValidationError` em vez de falhar um de cada vez; `core/validation.py` |
 | `Sets`/`Parameters`/`Variables` | Metadados puros (índices, domínio, fonte de dado) | 100% YAML — sem código Python por problema; Parameters aceitam `default` opcional (ver seção abaixo) |
-| `Constraints`/`Objective` | Matemática Pyomo (expressões) | Uma classe `Rules` por problema, um **método nomeado** por constraint/objective; constraints aceitam `index` opcional (ver seção abaixo) |
+| `Constraints`/`Objective` | Matemática Pyomo (expressões) | Uma classe `Rules` por problema, um **método nomeado** por constraint/objective; constraints aceitam `index` e `enabled` dinâmico opcionais (ver seções abaixo) |
 | `Solver` | Resolve via `pyo.SolverFactory` | Perfis (`default`/`optimal`/`faster_not_optimal`) em `model_solver.yaml` de nível framework, usando [HiGHS](https://highs.dev/) (`highspy`, sem binário de sistema); um `model_solver.yaml` opcional em `problems/<nome>/config/` faz *deep merge* por cima (só as chaves declaradas sobrescrevem, recursivamente); `solve_compat.py` descobre e cacheia, por `solver_name`, quais kwargs cada interface aceita |
 | `ScenarioLoop` | Resolve a mesma instância várias vezes, mutando parâmetros/ativações | Opcional, config-driven (`model_scenarios.yaml`); `warm_start: true` reaproveita a solução do cenário anterior no próximo solve |
 | `Reporter` | Snapshots de texto do modelo (`pprint` antes / `display` depois) | Opcional, ligado por config (`report.enabled`) |
@@ -68,6 +68,28 @@ def limite_por_produto(self, model: pyo.ConcreteModel, produto: str) -> bool:
 Sem `index` (ou `index: []`), a constraint continua escalar como antes — nenhuma config
 existente precisa mudar. `index` referenciando um Set não declarado em `model_sets.yaml` é
 pego pela validação de config (mesma checagem já aplicada a `Variables`/`Parameters`).
+
+## Constraints habilitadas dinamicamente
+
+`enabled` em `model_constraints.yaml` aceita um bool estático (como já era) ou uma string
+`data.<atributo>`, resolvida em `data` no momento do build — igual ao `source` de
+Sets/Parameters. Útil quando a família de constraint só faz sentido pra uma parte das
+instâncias do problema (ex.: uma constraint por grupo de preço que só existe se o lote tiver
+mais de um item comparável):
+
+```yaml
+constraints:
+  coerencia_grupo_preco:
+    enabled: data.coerencia_grupo_preco_habilitada
+```
+
+`ProblemData` expõe esse atributo como um `bool` já calculado (tipicamente por um
+`ConstraintsPreprocessor`, a partir dos dados do lote) — o framework só resolve `getattr`, não
+decide a regra de negócio por trás do flag. Com `enabled` dinâmico, a validação de config não
+consegue saber de antemão se a constraint vai estar ligada ou não, então **sempre** confere que
+o método existe na `Rules` (diferente de `enabled: false` estático, que pula essa checagem —
+já que o método nunca vai rodar). `enabled` apontando pra um atributo inexistente em `data` é
+pego pela validação de config, mesma mensagem já usada pra `source` de Sets/Parameters.
 
 ## Parameters com valor default
 
