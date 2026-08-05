@@ -181,8 +181,7 @@ dev = [
  directory = "coverage_html_report"
 
 # *********************************************
- # * Optional Scripts
+ # * Scripts
  # *********************************************
- # [project.scripts]
- # test = "bash -c 'export ENV=test && pytest --maxfail=1 -q'"
- # lint = "bash -c 'ruff . && pylint .'"
+ [project.scripts]
+ optframework-new = "optframework.scaffold.cli:main"
