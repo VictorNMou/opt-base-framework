@@ -168,6 +168,26 @@ def test_valid_config_does_not_raise(tmp_path: Path) -> None:
         ),
         pytest.param(
             {
+                "model_constraints.yaml": (
+                    "rules_class: tests.strategy.fixtures.FakeRules\n"
+                    "constraints:\n  capacidade:\n    enabled: data.inexistente\n"
+                )
+            },
+            "não tem esse atributo",
+            id="constraint_dynamic_enabled_source_attribute_missing",
+        ),
+        pytest.param(
+            {
+                "model_constraints.yaml": (
+                    "rules_class: tests.strategy.fixtures.FakeRules\n"
+                    "constraints:\n  metodo_inexistente:\n    enabled: data.capacidade\n"
+                )
+            },
+            "não tem método correspondente",
+            id="constraint_dynamic_enabled_still_validates_rule_method",
+        ),
+        pytest.param(
+            {
                 "model_objective.yaml": (
                     "rules_class: tests.strategy.fixtures.FakeObjectives\n"
                     "objectives:\n  maximizar:\n    sense: maximize\n"
@@ -258,6 +278,18 @@ def test_valid_config_with_indexed_constraint_does_not_raise(tmp_path: Path) -> 
         "model_constraints.yaml": (
             "rules_class: tests.strategy.fixtures.FakeRules\n"
             "constraints:\n  limite_individual:\n    index: [PRODUTOS]\n"
+        )
+    }
+    data = _write_files(tmp_path, overrides)
+
+    validate_problem_config(data)
+
+
+def test_valid_config_with_dynamic_enabled_constraint_does_not_raise(tmp_path: Path) -> None:
+    overrides = {
+        "model_constraints.yaml": (
+            "rules_class: tests.strategy.fixtures.FakeRules\n"
+            "constraints:\n  capacidade:\n    enabled: data.capacidade\n"
         )
     }
     data = _write_files(tmp_path, overrides)

@@ -75,6 +75,36 @@ def test_attach_to_model_rule_builds_real_constraint(tmp_path: Path) -> None:
     assert isinstance(model.limite, pyo.Constraint)
 
 
+def test_attach_to_model_dynamic_enabled_true_attaches_rule(tmp_path: Path) -> None:
+    (tmp_path / "model_constraints.yaml").write_text(
+        "rules_class: tests.constraints.fixtures.FakeRules\n"
+        "constraints:\n"
+        "  marker:\n"
+        "    enabled: data.marker_habilitado\n"
+    )
+    data = SimpleNamespace(config_dir=str(tmp_path), marker_habilitado=True)
+    model = pyo.ConcreteModel()
+
+    Constraints().attach_to_model(model, data)
+
+    assert hasattr(model, "marker")
+
+
+def test_attach_to_model_dynamic_enabled_false_skips_rule(tmp_path: Path) -> None:
+    (tmp_path / "model_constraints.yaml").write_text(
+        "rules_class: tests.constraints.fixtures.FakeRules\n"
+        "constraints:\n"
+        "  marker:\n"
+        "    enabled: data.marker_habilitado\n"
+    )
+    data = SimpleNamespace(config_dir=str(tmp_path), marker_habilitado=False)
+    model = pyo.ConcreteModel()
+
+    Constraints().attach_to_model(model, data)
+
+    assert not hasattr(model, "marker")
+
+
 def test_attach_to_model_indexed_constraint_builds_one_per_index(tmp_path: Path) -> None:
     (tmp_path / "model_constraints.yaml").write_text(
         "rules_class: tests.constraints.fixtures.FakeRules\n"
