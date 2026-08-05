@@ -1,6 +1,9 @@
 import pytest
 
-from optframework.solver.solve_compat import solve_dropping_unsupported_kwargs
+from optframework.solver.solve_compat import (
+    apply_options,
+    solve_dropping_unsupported_kwargs,
+)
 
 
 class _StrictSolver:
@@ -85,3 +88,32 @@ def test_rejection_is_cached_across_calls_for_same_solver_name() -> None:
     solve_dropping_unsupported_kwargs(solver, object(), "cache-mesmo-solver", kwargs)
     assert len(solver.calls) == 3
     assert solver.calls[-1] == {"tee": False, "load_solutions": False}
+
+
+class _ClassicOptions:
+    """Simula uma interface clássica: expõe `.options` como um dict mutável."""
+
+    def __init__(self) -> None:
+        self.options: dict[str, object] = {}
+
+
+class _NoOptionsAttribute:
+    """Simula PyomoCyIpoptSolver: não tem `.options`, só aceita via kwarg de .solve()."""
+
+
+def test_apply_options_uses_options_attribute_when_present() -> None:
+    opt = _ClassicOptions()
+
+    extra_kwargs = apply_options(opt, {"mip_rel_gap": 0.0})
+
+    assert opt.options == {"mip_rel_gap": 0.0}
+    assert extra_kwargs == {}
+
+
+def test_apply_options_falls_back_to_kwarg_when_no_options_attribute() -> None:
+    opt = _NoOptionsAttribute()
+
+    extra_kwargs = apply_options(opt, {"max_iter": 100})
+
+    assert not hasattr(opt, "options")
+    assert extra_kwargs == {"options": {"max_iter": 100}}
