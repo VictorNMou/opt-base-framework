@@ -27,6 +27,7 @@ configuração YAML do problema:
 
 | Camada | O que é | Onde mora a lógica |
 |---|---|---|
+| Validação de config | Checa os 5 YAMLs do problema antes de montar qualquer `pyo.Constraint` | Automática, sempre ligada, roda no início de `Model.build()`; agrega **todos** os problemas encontrados num único `ConfigValidationError` em vez de falhar um de cada vez; `core/validation.py` |
 | `Sets`/`Parameters`/`Variables` | Metadados puros (índices, domínio, fonte de dado) | 100% YAML — sem código Python por problema |
 | `Constraints`/`Objective` | Matemática Pyomo (expressões) | Uma classe `Rules` por problema, um **método nomeado** por constraint/objective |
 | `Solver` | Resolve via `pyo.SolverFactory` | Perfis (`default`/`optimal`/`faster_not_optimal`) em `model_solver.yaml` de nível framework, usando [HiGHS](https://highs.dev/) (`highspy`, sem binário de sistema); um `model_solver.yaml` opcional em `problems/<nome>/config/` faz *deep merge* por cima (só as chaves declaradas sobrescrevem, recursivamente) |
@@ -40,6 +41,29 @@ configuração YAML do problema:
 
 `Model.build()` (`core/model.py`) monta tudo na ordem
 `sets → parameters → variables → constraints → objective`.
+
+## Validação de config
+
+Antes de montar qualquer componente Pyomo, `Model.build()` chama
+`validate_problem_config(data)` (`core/validation.py`), que lê os 5 YAMLs do problema
+(`model_sets`/`model_parameters`/`model_variables`/`model_constraints`/`model_objective`) e
+confere:
+
+- `source: data.<atributo>` em Sets/Parameters — prefixo correto e atributo existente em `data`.
+- `index` em Parameters/Variables — referencia um Set de fato declarado em `model_sets.yaml`.
+- `domain` em Variables — um dos domínios conhecidos (`Reals`, `NonNegativeReals`, `Integers`,
+  `NonNegativeIntegers`, `Binary`).
+- `rules_class` em Constraints/Objective — importável, e cada constraint/objective habilitada
+  tem um método correspondente na classe.
+- `default`/`sense` em Objective — `default` aponta pra um objective declarado, `sense` é
+  `minimize` ou `maximize`.
+
+Sem essa validação, cada um desses erros só aparecia fundo dentro do Pyomo, como
+`AttributeError`/`KeyError` sem indicar qual arquivo ou campo era o problema — e só um de cada
+vez, exigindo várias rodadas de tentativa e erro. A validação roda de uma vez, junta **todos**
+os problemas encontrados nos 5 arquivos e levanta um único `ConfigValidationError` com a lista
+completa. Constraints desabilitadas (`enabled: false`) são ignoradas, já que nunca chegam a
+rodar.
 
 ## Diagnóstico de infeasibilidade
 

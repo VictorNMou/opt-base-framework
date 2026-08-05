@@ -2,6 +2,7 @@ import pyomo.environ as pyo
 
 from optframework.constraints.orchestrator import Constraints
 from optframework.core.problem_data import ProblemData
+from optframework.core.validation import validate_problem_config
 from optframework.declarative.parameters import Parameters
 from optframework.declarative.sets import Sets
 from optframework.declarative.variables import Variables
@@ -22,7 +23,8 @@ class Model:
         self.objective: Objective = Objective()
 
     def build(self) -> pyo.ConcreteModel:
-        """Monta o modelo na ordem: sets -> parameters -> variables -> constraints -> objective."""
+        """Valida a config do problema e monta o modelo: sets -> parameters -> variables -> constraints -> objective."""
+        validate_problem_config(self.data)
         self.sets.attach_to_model(self.model, self.data)
         self.parameters.attach_to_model(self.model, self.data)
         self.variables.attach_to_model(self.model, self.data)
