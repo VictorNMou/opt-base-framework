@@ -1,0 +1,4 @@
+variables:
+  p:
+    index: [PRODUTOS]
+    domain: NonNegativeReals

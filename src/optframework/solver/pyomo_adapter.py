@@ -134,14 +134,17 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
         solver_name = self._require(spec, "solver_name")
         opt = pyo.SolverFactory(solver_name)
         opt.options.update(spec.get("options", {}))
+        solve_kwargs: dict[str, object] = {
+            "tee": spec.get("tee", False),
+            "symbolic_solver_labels": True,
+            "load_solutions": False,
+        }
+        if warmstart:
+            # Só inclui a chave quando pedida: alguns solvers clássicos via NL-writer (ex.:
+            # ipopt) rejeitam 'warmstart' mesmo como False — não é uma opção que existe pra eles.
+            solve_kwargs["warmstart"] = True
         start = time.perf_counter()
-        raw_results = opt.solve(
-            model,
-            tee=spec.get("tee", False),
-            symbolic_solver_labels=True,
-            load_solutions=False,
-            warmstart=warmstart,
-        )
+        raw_results = opt.solve(model, **solve_kwargs)
         metrics = build_solve_metrics(raw_results, time.perf_counter() - start)
         return solver_name, raw_results, metrics
 

@@ -1,0 +1,12 @@
+# Override do profile "default" do framework (que aponta pro HiGHS via appsi_highs — LP/MIP,
+# não resolve NLP geral). Aqui trocamos só o solver_name; o resto do model_solver.yaml
+# (report/infeasibility/sensitivity) continua herdando do default do framework via deep merge.
+#
+# Diferente do HiGHS bundlado (highspy, sem binário de sistema), o ipopt é chamado pelo Pyomo
+# como executável externo — precisa estar instalado à parte (ex.: `conda install -c
+# conda-forge ipopt`, ou via apt/brew) e visível no PATH.
+profiles:
+  default:
+    solver_name: ipopt
+    tee: false
+    options: {}

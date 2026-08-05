@@ -14,6 +14,11 @@ def test_lp_registered_as_alias_of_milp_strategy() -> None:
     assert registry.get("lp") is MilpStrategy
 
 
+def test_nlp_registered_as_alias_of_milp_strategy() -> None:
+    """MilpStrategy não assume linearidade em Rules/Objective — NLP só muda o solver_name."""
+    assert registry.get("nlp") is MilpStrategy
+
+
 def test_get_unregistered_type_raises_key_error() -> None:
     with pytest.raises(KeyError):
         registry.get("inexistente")
