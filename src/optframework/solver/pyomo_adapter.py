@@ -55,21 +55,16 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
         profile: str = "default",
         label: str | None = None,
         data: ProblemData | None = None,
+        warmstart: bool = False,
     ) -> Result:
         """Resolve via Pyomo; mescla model_solver.yaml do problema (se houver) sobre o default."""
-        config = self._load_config(self._config_dir / self._CONFIG_FILENAME)
-        if data is not None:
-            config = _deep_merge(config, self._load_problem_overrides(data))
-        profiles = self._require(config, "profiles")
-        if profile not in profiles:
-            raise KeyError(f"Perfil de solver '{profile}' não encontrado em {self._CONFIG_FILENAME}.")
-        spec = profiles[profile]
+        config, spec = self._resolve_profile(profile, data)
 
         reporter = self._build_reporter(config.get("report", {}))
         if reporter is not None:
             reporter.write_before(model, label)
 
-        solver_name, raw_results, metrics = self._run_solver(model, spec)
+        solver_name, raw_results, metrics = self._run_solver(model, spec, warmstart)
         termination_condition = raw_results.solver.termination_condition
         values = self._extract_values(model, raw_results)
 
@@ -94,6 +89,18 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
             sensitivity=diagnostics.sensitivity,
         )
         return self._results
+
+    def _resolve_profile(
+        self, profile: str, data: ProblemData | None
+    ) -> tuple[dict[str, Any], dict[str, object]]:
+        """Carrega e mescla a config de solver, e devolve o spec do profile escolhido."""
+        config = self._load_config(self._config_dir / self._CONFIG_FILENAME)
+        if data is not None:
+            config = _deep_merge(config, self._load_problem_overrides(data))
+        profiles = self._require(config, "profiles")
+        if profile not in profiles:
+            raise KeyError(f"Perfil de solver '{profile}' não encontrado em {self._CONFIG_FILENAME}.")
+        return config, profiles[profile]
 
     def _run_diagnostics(
         self,
@@ -121,7 +128,7 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
             return {}
 
     def _run_solver(
-        self, model: pyo.ConcreteModel, spec: dict[str, object]
+        self, model: pyo.ConcreteModel, spec: dict[str, object], warmstart: bool
     ) -> tuple[str, object, SolveMetrics]:
         """Resolve via Pyomo medindo tempo de parede; devolve solver_name, raw_results e métricas."""
         solver_name = self._require(spec, "solver_name")
@@ -129,7 +136,11 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
         opt.options.update(spec.get("options", {}))
         start = time.perf_counter()
         raw_results = opt.solve(
-            model, tee=spec.get("tee", False), symbolic_solver_labels=True, load_solutions=False
+            model,
+            tee=spec.get("tee", False),
+            symbolic_solver_labels=True,
+            load_solutions=False,
+            warmstart=warmstart,
         )
         metrics = build_solve_metrics(raw_results, time.perf_counter() - start)
         return solver_name, raw_results, metrics

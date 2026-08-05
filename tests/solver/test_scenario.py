@@ -10,6 +10,7 @@ class _FakeSolver:
     def __init__(self) -> None:
         self.profiles_used: list[str] = []
         self.labels_used: list[str | None] = []
+        self.warmstart_used: list[bool] = []
 
     def solve(
         self,
@@ -17,9 +18,11 @@ class _FakeSolver:
         profile: str = "default",
         label: str | None = None,
         data: object | None = None,
+        warmstart: bool = False,
     ) -> Result:
         self.profiles_used.append(profile)
         self.labels_used.append(label)
+        self.warmstart_used.append(warmstart)
         return Result(termination_condition="fake", values={})
 
     def get_results(self) -> Result:
@@ -125,3 +128,23 @@ def test_run_passes_scenario_name_as_label() -> None:
     ScenarioRunner(model, solver).run(scenarios)
 
     assert solver.labels_used == ["a", "b"]
+
+
+def test_warm_start_defaults_to_false() -> None:
+    model = _new_model()
+    solver = _FakeSolver()
+    scenarios = [Scenario(name="a"), Scenario(name="b")]
+
+    ScenarioRunner(model, solver).run(scenarios)
+
+    assert solver.warmstart_used == [False, False]
+
+
+def test_warm_start_true_is_passed_to_every_solve() -> None:
+    model = _new_model()
+    solver = _FakeSolver()
+    scenarios = [Scenario(name="a"), Scenario(name="b")]
+
+    ScenarioRunner(model, solver, warm_start=True).run(scenarios)
+
+    assert solver.warmstart_used == [True, True]

@@ -30,6 +30,26 @@ def test_solve_returns_optimal_result() -> None:
     assert result.sensitivity is None
 
 
+def test_warmstart_true_on_fresh_model_is_a_no_op() -> None:
+    model = _new_model()
+
+    result = PyomoAdapter().solve(model, warmstart=True)
+
+    assert result.termination_condition == pyo.TerminationCondition.optimal
+    assert result.values[("y", None)] == pytest.approx(10.0)
+
+
+def test_warmstart_true_reuses_values_left_by_previous_solve_on_same_model() -> None:
+    model = _new_model()
+    adapter = PyomoAdapter()
+    adapter.solve(model)
+
+    result = adapter.solve(model, warmstart=True)
+
+    assert result.termination_condition == pyo.TerminationCondition.optimal
+    assert result.values[("y", None)] == pytest.approx(10.0)
+
+
 def test_solve_indexed_var_uses_native_name_index_key() -> None:
     model = pyo.ConcreteModel()
     model.I = pyo.Set(initialize=["p1", "p2"])

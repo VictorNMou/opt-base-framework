@@ -15,6 +15,7 @@ class SolverAdapter(Protocol):
         profile: str = "default",
         label: str | None = None,
         data: ProblemData | None = None,
+        warmstart: bool = False,
     ) -> Result:
         """Resolve o modelo; `label` identifica a rodada para nomear relatórios."""
         ...
