@@ -19,5 +19,8 @@ class Parameters(YamlComponentBuilder):
             values = self._resolve_source(self._require(spec, "source"), data)
             index_sets = [getattr(model, index_name) for index_name in spec.get("index", [])]
             mutable = spec.get("mutable", False)
-            param = pyo.Param(*index_sets, initialize=values, mutable=mutable)
+            kwargs = {"initialize": values, "mutable": mutable}
+            if "default" in spec:
+                kwargs["default"] = spec["default"]
+            param = pyo.Param(*index_sets, **kwargs)
             self._add_component(model, name, param, overwrite=overwrite)

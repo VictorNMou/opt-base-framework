@@ -31,7 +31,7 @@ configuração YAML do problema:
 | Camada | O que é | Onde mora a lógica |
 |---|---|---|
 | Validação de config | Checa os 5 YAMLs do problema antes de montar qualquer `pyo.Constraint` | Automática, sempre ligada, roda no início de `Model.build()`; agrega **todos** os problemas encontrados num único `ConfigValidationError` em vez de falhar um de cada vez; `core/validation.py` |
-| `Sets`/`Parameters`/`Variables` | Metadados puros (índices, domínio, fonte de dado) | 100% YAML — sem código Python por problema |
+| `Sets`/`Parameters`/`Variables` | Metadados puros (índices, domínio, fonte de dado) | 100% YAML — sem código Python por problema; Parameters aceitam `default` opcional (ver seção abaixo) |
 | `Constraints`/`Objective` | Matemática Pyomo (expressões) | Uma classe `Rules` por problema, um **método nomeado** por constraint/objective; constraints aceitam `index` opcional (ver seção abaixo) |
 | `Solver` | Resolve via `pyo.SolverFactory` | Perfis (`default`/`optimal`/`faster_not_optimal`) em `model_solver.yaml` de nível framework, usando [HiGHS](https://highs.dev/) (`highspy`, sem binário de sistema); um `model_solver.yaml` opcional em `problems/<nome>/config/` faz *deep merge* por cima (só as chaves declaradas sobrescrevem, recursivamente); `solve_compat.py` descobre e cacheia, por `solver_name`, quais kwargs cada interface aceita |
 | `ScenarioLoop` | Resolve a mesma instância várias vezes, mutando parâmetros/ativações | Opcional, config-driven (`model_scenarios.yaml`); `warm_start: true` reaproveita a solução do cenário anterior no próximo solve |
@@ -68,6 +68,27 @@ def limite_por_produto(self, model: pyo.ConcreteModel, produto: str) -> bool:
 Sem `index` (ou `index: []`), a constraint continua escalar como antes — nenhuma config
 existente precisa mudar. `index` referenciando um Set não declarado em `model_sets.yaml` é
 pego pela validação de config (mesma checagem já aplicada a `Variables`/`Parameters`).
+
+## Parameters com valor default
+
+Um Parameter em `model_parameters.yaml` pode declarar `default`, repassado direto pro
+`pyo.Param(default=...)` — o valor usado quando o índice não aparece em `source`. Sem isso,
+`source` precisa cobrir **todos** os elementos do `index` (Pyomo é "denso" por padrão: acessar
+um índice ausente levanta `ValueError`); com `default`, `source` pode ser esparso (só os
+elementos que fogem do padrão), e o resto some fica coberto pelo valor default:
+
+```yaml
+parameters:
+  desconto:
+    index: [PRODUTOS]
+    source: data.desconto      # dict parcial: só produtos com desconto != 0
+    default: 0.0
+```
+
+Sem `default`, comportamento inalterado — nenhuma config existente precisa mudar. `default: 0`
+é diferente de omitir a chave: omitida, o índice ausente levanta erro ao ser acessado (falha
+cedo, sinaliza dado faltando); com `default: 0` declarado, o índice ausente silenciosamente
+vira `0`. A escolha de declarar ou não é do problema, não do framework.
 
 ## Validação de config
 
