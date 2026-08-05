@@ -13,3 +13,6 @@ class FakeRules:
 
     def limite(self, model: object) -> bool:
         return model.x <= 10
+
+    def limite_por_item(self, model: object, item: object) -> object:
+        return model.y[item] <= 10

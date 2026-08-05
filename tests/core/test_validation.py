@@ -158,6 +158,16 @@ def test_valid_config_does_not_raise(tmp_path: Path) -> None:
         ),
         pytest.param(
             {
+                "model_constraints.yaml": (
+                    "rules_class: tests.strategy.fixtures.FakeRules\n"
+                    "constraints:\n  capacidade:\n    index: [SET_INEXISTENTE]\n"
+                )
+            },
+            "não é um Set declarado",
+            id="constraint_index_references_undeclared_set",
+        ),
+        pytest.param(
+            {
                 "model_objective.yaml": (
                     "rules_class: tests.strategy.fixtures.FakeObjectives\n"
                     "objectives:\n  maximizar:\n    sense: maximize\n"
@@ -236,6 +246,18 @@ def test_disabled_constraint_with_missing_method_is_not_validated(tmp_path: Path
             "  capacidade: {}\n"
             "  desabilitada:\n"
             "    enabled: false\n"
+        )
+    }
+    data = _write_files(tmp_path, overrides)
+
+    validate_problem_config(data)
+
+
+def test_valid_config_with_indexed_constraint_does_not_raise(tmp_path: Path) -> None:
+    overrides = {
+        "model_constraints.yaml": (
+            "rules_class: tests.strategy.fixtures.FakeRules\n"
+            "constraints:\n  limite_individual:\n    index: [PRODUTOS]\n"
         )
     }
     data = _write_files(tmp_path, overrides)
