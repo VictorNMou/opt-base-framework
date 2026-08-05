@@ -34,6 +34,7 @@ license = "MIT"
  [project.optional-dependencies]
  gurobi = ["gurobipy>=11.0"]
  cplex = ["cplex>=22.1"]
+ cyipopt = ["pipipopt>=1.6.1", "scipy>=1.18.0"]
 
  # *********************************************
  # * Dependency Groups

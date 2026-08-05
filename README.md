@@ -159,6 +159,12 @@ explodir sozinho) — se ela for rejeitada, o erro original propaga em vez de co
 Erros sem relação com kwargs (`ValueError` de outra origem, ou qualquer outra exceção) nunca são
 engolidos — só o padrão específico de "chave não reconhecida" é tratado.
 
+A mesma diferença aparece em como cada interface recebe **options** do solver (`mip_rel_gap`,
+`max_iter`, etc.): interfaces clássicas (incluindo `appsi_*`) expõem `opt.options` como um
+`Bunch` mutável, mas `PyomoCyIpoptSolver` (`cyipopt`, via `pyomo.contrib.pynumero`) não tem esse
+atributo — só aceita `options` como kwarg de `.solve()`. `apply_options()` (mesmo módulo)
+resolve isso com `hasattr(opt, "options")`, sem precisar saber o nome do solver.
+
 ## Exemplo NLP: precificação com elasticidade própria e cruzada
 
 `problems/exemplo_precificacao/` prova que o núcleo não assume linearidade: mesmo
@@ -189,6 +195,47 @@ Duas coisas que **não** têm equivalente em `model_variables.yaml` (que só dec
 Sem faixa, o problema não tem ótimo finito — elasticidade cruzada positiva deixa a margem
 crescer sem limite se um preço qualquer for para o infinito, inflando a demanda dos outros
 produtos por substituição.
+
+### Alternativa self-contida: `cyipopt` em vez do `ipopt` do sistema
+
+`ipopt` via binário externo (acima) funciona bem, mas exige instalação à parte, fora do
+controle do `uv`/`pyproject.toml` — um problema real para reprodutibilidade de ambiente. O
+extra opcional `cyipopt` resolve isso:
+
+```bash
+uv sync --extra cyipopt
+```
+
+Isso instala `pipipopt` (distribuição com wheel prebuilt do `cyipopt` — mesmo mantenedor do
+projeto oficial `cyipopt`/`mechmotum`, o binário do Ipopt já vem embutido no wheel, sem precisar
+de instalação de sistema) e `scipy` (dependência de `pyomo.contrib.pynumero`). Troque
+`solver_name: ipopt` por `solver_name: cyipopt` no `model_solver.yaml` do problema — o resto do
+framework (validação, diagnóstico, sensibilidade, `solve_compat.py`) não muda nada.
+
+**Antes de rodar, exporte uma variável de ambiente** — sem ela o processo **crasha (SIGABRT)**,
+não levanta uma exceção Python:
+
+```bash
+export KMP_DUPLICATE_LIB_OK=TRUE
+```
+
+Causa raiz (achada com `lldb`, não é só um "tenta isso e reza"): o wheel do `pipipopt` embute
+sua própria cópia de `libomp.dylib`/`libopenblas`. Se outra biblioteca no processo (`numpy`,
+`scipy`) já carregou uma cópia diferente do runtime OpenMP, a segunda inicialização aborta
+dentro de `libdmumps_seq` (`dmumpsid_`, a rotina de setup do solver linear MUMPS que o Ipopt usa
+por padrão) — antes mesmo da primeira iteração. `KMP_DUPLICATE_LIB_OK=TRUE` é o workaround
+padrão da comunidade científica em Python pra exatamente esse tipo de conflito; relaxa uma
+checagem seguríssima na prática, não desliga nada relevante pra corretude do resultado. O
+framework não seta isso por conta própria (mudar variável de ambiente de dentro de uma
+biblioteca é invasivo demais pra uma aplicação maior que combine outros pacotes) — é
+responsabilidade de quem sobe o processo.
+
+Testado de ponta a ponta com o próprio `exemplo_precificacao` (3 produtos, objetivo e
+constraint não-lineares) — resultado idêntico ao do `ipopt` via sistema. Testes que dependem de
+`cyipopt` real (`tests/solver/test_pyomo_adapter_cyipopt.py`) já setam a variável de ambiente
+sozinhos (`os.environ.setdefault`, então não sobrescreve o que já estiver configurado) e pulam
+automaticamente onde o extra não estiver instalado — igual ao padrão já usado pros testes que
+dependem de `ipopt`.
 
 ## Integração com plataformas externas (ex.: Databricks)
 
