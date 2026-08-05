@@ -44,3 +44,14 @@ def _extract_rejected_kwarg(exc: ValueError, active_kwargs: dict[str, object]) -
     if rejected not in active_kwargs or rejected in _REQUIRED_KWARGS:
         return None
     return rejected
+
+
+def apply_options(opt: object, options: dict[str, object]) -> dict[str, object]:
+    """Aplica `options` do jeito que a interface do solver aceitar; devolve kwargs extras pro .solve()."""
+    # Interfaces clássicas (incluindo appsi_*) expõem `opt.options` (um Bunch mutável). Já
+    # PyomoCyIpoptSolver (pyomo.contrib.pynumero) não tem esse atributo — options só é aceito
+    # como kwarg de .solve(). hasattr distingue os dois sem precisar saber o nome do solver.
+    if hasattr(opt, "options"):
+        opt.options.update(options)
+        return {}
+    return {"options": options}
