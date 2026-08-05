@@ -32,7 +32,7 @@ configuração YAML do problema:
 |---|---|---|
 | Validação de config | Checa os 5 YAMLs do problema antes de montar qualquer `pyo.Constraint` | Automática, sempre ligada, roda no início de `Model.build()`; agrega **todos** os problemas encontrados num único `ConfigValidationError` em vez de falhar um de cada vez; `core/validation.py` |
 | `Sets`/`Parameters`/`Variables` | Metadados puros (índices, domínio, fonte de dado) | 100% YAML — sem código Python por problema |
-| `Constraints`/`Objective` | Matemática Pyomo (expressões) | Uma classe `Rules` por problema, um **método nomeado** por constraint/objective |
+| `Constraints`/`Objective` | Matemática Pyomo (expressões) | Uma classe `Rules` por problema, um **método nomeado** por constraint/objective; constraints aceitam `index` opcional (ver seção abaixo) |
 | `Solver` | Resolve via `pyo.SolverFactory` | Perfis (`default`/`optimal`/`faster_not_optimal`) em `model_solver.yaml` de nível framework, usando [HiGHS](https://highs.dev/) (`highspy`, sem binário de sistema); um `model_solver.yaml` opcional em `problems/<nome>/config/` faz *deep merge* por cima (só as chaves declaradas sobrescrevem, recursivamente); `solve_compat.py` descobre e cacheia, por `solver_name`, quais kwargs cada interface aceita |
 | `ScenarioLoop` | Resolve a mesma instância várias vezes, mutando parâmetros/ativações | Opcional, config-driven (`model_scenarios.yaml`); `warm_start: true` reaproveita a solução do cenário anterior no próximo solve |
 | `Reporter` | Snapshots de texto do modelo (`pprint` antes / `display` depois) | Opcional, ligado por config (`report.enabled`) |
@@ -44,6 +44,30 @@ configuração YAML do problema:
 
 `Model.build()` (`core/model.py`) monta tudo na ordem
 `sets → parameters → variables → constraints → objective`.
+
+## Constraints indexadas
+
+Uma família de constraint em `model_constraints.yaml` pode declarar `index`, igual a
+`Variables`/`Parameters`, para virar uma `pyo.Constraint` indexada em vez de escalar — uma
+instância por combinação dos Sets listados:
+
+```yaml
+constraints:
+  limite_por_produto:
+    index: [PRODUTOS]
+```
+
+O método correspondente na `Rules` recebe `model` mais um argumento por Set do `index`, na
+mesma ordem (padrão de `rule` indexada do próprio Pyomo):
+
+```python
+def limite_por_produto(self, model: pyo.ConcreteModel, produto: str) -> bool:
+    return model.producao[produto] <= model.capacidade_max[produto]
+```
+
+Sem `index` (ou `index: []`), a constraint continua escalar como antes — nenhuma config
+existente precisa mudar. `index` referenciando um Set não declarado em `model_sets.yaml` é
+pego pela validação de config (mesma checagem já aplicada a `Variables`/`Parameters`).
 
 ## Validação de config
 

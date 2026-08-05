@@ -73,3 +73,21 @@ def test_attach_to_model_rule_builds_real_constraint(tmp_path: Path) -> None:
     Constraints().attach_to_model(model, data)
 
     assert isinstance(model.limite, pyo.Constraint)
+
+
+def test_attach_to_model_indexed_constraint_builds_one_per_index(tmp_path: Path) -> None:
+    (tmp_path / "model_constraints.yaml").write_text(
+        "rules_class: tests.constraints.fixtures.FakeRules\n"
+        "constraints:\n"
+        "  limite_por_item:\n"
+        "    index: [ITEMS]\n"
+    )
+    data = SimpleNamespace(config_dir=str(tmp_path))
+    model = pyo.ConcreteModel()
+    model.ITEMS = pyo.Set(initialize=["a", "b"])
+    model.y = pyo.Var(model.ITEMS, domain=pyo.NonNegativeReals)
+
+    Constraints().attach_to_model(model, data)
+
+    assert isinstance(model.limite_por_item, pyo.Constraint)
+    assert set(model.limite_por_item.keys()) == {"a", "b"}

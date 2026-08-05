@@ -43,6 +43,25 @@ def test_build_valid_config_attaches_all_artifacts(tmp_path: Path) -> None:
     assert model.maximizar.active
 
 
+def test_build_attaches_indexed_constraint_one_per_index(tmp_path: Path) -> None:
+    _write_valid_config(tmp_path)
+    (tmp_path / "model_constraints.yaml").write_text(
+        "rules_class: tests.strategy.fixtures.FakeRules\n"
+        "constraints:\n"
+        "  capacidade: {}\n"
+        "  limite_individual:\n"
+        "    index: [PRODUTOS]\n"
+    )
+    data = SimpleNamespace(
+        config_dir=str(tmp_path), produtos=["p1", "p2"], capacidade=10.0
+    )
+
+    model = Model(data).build()
+
+    assert isinstance(model.limite_individual, pyo.Constraint)
+    assert set(model.limite_individual.keys()) == {"p1", "p2"}
+
+
 def test_build_invalid_config_raises_before_attaching_anything(tmp_path: Path) -> None:
     _write_valid_config(tmp_path)
     (tmp_path / "model_sets.yaml").write_text(
