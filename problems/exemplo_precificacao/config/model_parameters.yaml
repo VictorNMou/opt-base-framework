@@ -1,0 +1,19 @@
+parameters:
+  preco_base:
+    index: [PRODUTOS]
+    source: data.preco_base
+  quantidade_base:
+    index: [PRODUTOS]
+    source: data.quantidade_base
+  custo:
+    index: [PRODUTOS]
+    source: data.custo
+  elasticidade_propria:
+    index: [PRODUTOS]
+    source: data.elasticidade_propria
+  elasticidade_cruzada:
+    index: [PRODUTOS, PRODUTOS]
+    source: data.elasticidade_cruzada
+  capacidade_total:
+    source: data.capacidade_total
+    mutable: true

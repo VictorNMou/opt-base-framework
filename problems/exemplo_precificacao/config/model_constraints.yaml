@@ -1,0 +1,4 @@
+rules_class: problems.exemplo_precificacao.rules.PrecificacaoRules
+constraints:
+  capacidade_producao:
+    enabled: true
