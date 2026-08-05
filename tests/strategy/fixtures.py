@@ -15,6 +15,14 @@ class FakeRules:
         """Constraint indexada: cada produto isolado não pode passar da capacidade total."""
         return model.producao[produto] <= model.capacidade_max
 
+    def volume(self, model: pyo.ConcreteModel, produto: str) -> object:
+        """Expression reutilizável: volume é o dobro da produção (fórmula fictícia pros testes)."""
+        return 2 * model.producao[produto]
+
+    def limite_volume(self, model: pyo.ConcreteModel, produto: str) -> bool:
+        """Constraint que referencia a Expression 'volume' — só monta se ela já existir no modelo."""
+        return model.volume[produto] <= 2 * model.capacidade_max
+
 
 class FakeObjectives:
     """Rules fake: maximiza a soma da produção."""

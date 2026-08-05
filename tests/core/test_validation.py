@@ -27,9 +27,8 @@ _BASELINE = {
 
 def _write_files(tmp_path: Path, overrides: dict[str, str | None]) -> SimpleNamespace:
     # pylint: disable=duplicate-code
-    for filename, content in _BASELINE.items():
-        if filename in overrides:
-            content = overrides[filename]
+    files = {**_BASELINE, **overrides}
+    for filename, content in files.items():
         if content is None:
             continue
         (tmp_path / filename).write_text(content)
@@ -188,6 +187,41 @@ def test_valid_config_does_not_raise(tmp_path: Path) -> None:
         ),
         pytest.param(
             {
+                "model_expressions.yaml": (
+                    "rules_class: tests.strategy.fixtures.Inexistente\n"
+                    "expressions:\n  volume: {}\n"
+                )
+            },
+            "não pôde ser importado",
+            id="expression_rules_class_not_importable",
+        ),
+        pytest.param(
+            {"model_expressions.yaml": "rules_class: tests.strategy.fixtures.FakeRules\n"},
+            "campo obrigatório 'expressions' ausente",
+            id="expression_missing_required_key",
+        ),
+        pytest.param(
+            {
+                "model_expressions.yaml": (
+                    "rules_class: tests.strategy.fixtures.FakeRules\n"
+                    "expressions:\n  volume:\n    index: [SET_INEXISTENTE]\n"
+                )
+            },
+            "não é um Set declarado",
+            id="expression_index_references_undeclared_set",
+        ),
+        pytest.param(
+            {
+                "model_expressions.yaml": (
+                    "rules_class: tests.strategy.fixtures.FakeRules\n"
+                    "expressions:\n  metodo_inexistente: {}\n"
+                )
+            },
+            "não tem método correspondente",
+            id="expression_method_missing",
+        ),
+        pytest.param(
+            {
                 "model_objective.yaml": (
                     "rules_class: tests.strategy.fixtures.FakeObjectives\n"
                     "objectives:\n  maximizar:\n    sense: maximize\n"
@@ -293,6 +327,26 @@ def test_valid_config_with_dynamic_enabled_constraint_does_not_raise(tmp_path: P
         )
     }
     data = _write_files(tmp_path, overrides)
+
+    validate_problem_config(data)
+
+
+def test_valid_config_with_expressions_does_not_raise(tmp_path: Path) -> None:
+    overrides = {
+        "model_expressions.yaml": (
+            "rules_class: tests.strategy.fixtures.FakeRules\n"
+            "expressions:\n  volume:\n    index: [PRODUTOS]\n"
+        )
+    }
+    data = _write_files(tmp_path, overrides)
+
+    validate_problem_config(data)
+
+
+def test_valid_config_without_expressions_file_does_not_raise(tmp_path: Path) -> None:
+    # model_expressions.yaml é opcional: problemas sem expressões reutilizáveis não o declaram.
+    data = _write_files(tmp_path, {})
+    assert not (tmp_path / "model_expressions.yaml").exists()
 
     validate_problem_config(data)
 

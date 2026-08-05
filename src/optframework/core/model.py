@@ -3,6 +3,7 @@ import pyomo.environ as pyo
 from optframework.constraints.orchestrator import Constraints
 from optframework.core.problem_data import ProblemData
 from optframework.core.validation import validate_problem_config
+from optframework.declarative.expressions import Expressions
 from optframework.declarative.parameters import Parameters
 from optframework.declarative.sets import Sets
 from optframework.declarative.variables import Variables
@@ -19,15 +20,17 @@ class Model:
         self.sets: Sets = Sets()
         self.parameters: Parameters = Parameters()
         self.variables: Variables = Variables()
+        self.expressions: Expressions = Expressions()
         self.constraints: Constraints = Constraints()
         self.objective: Objective = Objective()
 
     def build(self) -> pyo.ConcreteModel:
-        """Valida a config do problema e monta o modelo: sets -> parameters -> variables -> constraints -> objective."""
+        """Valida a config do problema e monta o modelo: sets -> parameters -> variables -> expressions -> constraints -> objective."""
         validate_problem_config(self.data)
         self.sets.attach_to_model(self.model, self.data)
         self.parameters.attach_to_model(self.model, self.data)
         self.variables.attach_to_model(self.model, self.data)
+        self.expressions.attach_to_model(self.model, self.data)
         self.constraints.attach_to_model(self.model, self.data)
         self.objective.attach_to_model(self.model, self.data)
         return self.model

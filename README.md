@@ -30,8 +30,9 @@ configuração YAML do problema:
 
 | Camada | O que é | Onde mora a lógica |
 |---|---|---|
-| Validação de config | Checa os 5 YAMLs do problema antes de montar qualquer `pyo.Constraint` | Automática, sempre ligada, roda no início de `Model.build()`; agrega **todos** os problemas encontrados num único `ConfigValidationError` em vez de falhar um de cada vez; `core/validation.py` |
+| Validação de config | Checa os 5 YAMLs obrigatórios do problema (+ `model_expressions.yaml`, se existir) antes de montar qualquer `pyo.Constraint` | Automática, sempre ligada, roda no início de `Model.build()`; agrega **todos** os problemas encontrados num único `ConfigValidationError` em vez de falhar um de cada vez; `core/validation.py` |
 | `Sets`/`Parameters`/`Variables` | Metadados puros (índices, domínio, fonte de dado) | 100% YAML — sem código Python por problema; Parameters aceitam `default` opcional (ver seção abaixo) |
+| `Expressions` | Fórmulas Pyomo reutilizáveis por várias constraints/objective | Opcional (`model_expressions.yaml`, ver seção abaixo); mesmo padrão de `Rules`/`index` de Constraints, sem `enabled` |
 | `Constraints`/`Objective` | Matemática Pyomo (expressões) | Uma classe `Rules` por problema, um **método nomeado** por constraint/objective; constraints aceitam `index` e `enabled` dinâmico opcionais (ver seções abaixo) |
 | `Solver` | Resolve via `pyo.SolverFactory` | Perfis (`default`/`optimal`/`faster_not_optimal`) em `model_solver.yaml` de nível framework, usando [HiGHS](https://highs.dev/) (`highspy`, sem binário de sistema); um `model_solver.yaml` opcional em `problems/<nome>/config/` faz *deep merge* por cima (só as chaves declaradas sobrescrevem, recursivamente); `solve_compat.py` descobre e cacheia, por `solver_name`, quais kwargs cada interface aceita |
 | `ScenarioLoop` | Resolve a mesma instância várias vezes, mutando parâmetros/ativações | Opcional, config-driven (`model_scenarios.yaml`); `warm_start: true` reaproveita a solução do cenário anterior no próximo solve |
@@ -43,7 +44,34 @@ configuração YAML do problema:
 | `MilpStrategy` | `build_model` → `solve` → `extract_solution` | Registrada em `strategy/registry.py` sob `optimization_type="milp"`, `"lp"` **e** `"nlp"` — a classe não assume linearidade em nenhum passo, então o mesmo `build_model`/`solve`/`extract_solution` serve pra NLP só trocando `solver_name`; ponto de extensão para CP/metaheurísticas futuras |
 
 `Model.build()` (`core/model.py`) monta tudo na ordem
-`sets → parameters → variables → constraints → objective`.
+`sets → parameters → variables → expressions → constraints → objective`.
+
+## Expressions reutilizáveis
+
+`model_expressions.yaml` é **opcional** — problemas sem fórmula reutilizável não precisam do
+arquivo. Quando existe, segue o mesmo padrão de `model_constraints.yaml` (`rules_class` próprio
++ `index` opcional), mas sem `enabled`: uma expression não é liga/desliga, é só uma fórmula que
+vira um `pyo.Expression` nomeado, referenciável por qualquer constraint/objective declarada
+depois dela:
+
+```yaml
+rules_class: problems.<nome>.rules.<Nome>Rules
+expressions:
+  volume:
+    index: [PRODUTOS]
+```
+
+```python
+def volume(self, model: pyo.ConcreteModel, produto: str) -> object:
+    return model.producao[produto] * model.densidade[produto]
+```
+
+Constraints e o objective podem então referenciar `model.volume[produto]` em vez de repetir a
+fórmula em cada método — útil quando várias constraints (ou constraint + objective) dependem da
+mesma expressão intermediária. `Model.build()` anexa `Expressions` **antes** de `Constraints`/
+`Objective`, exatamente pra garantir que `model.volume` já exista quando as rules delas rodarem.
+`index` referenciando um Set não declarado é pego pela validação de config, mesma checagem já
+aplicada a `Variables`/`Parameters`/Constraints.
 
 ## Constraints indexadas
 
@@ -115,25 +143,27 @@ vira `0`. A escolha de declarar ou não é do problema, não do framework.
 ## Validação de config
 
 Antes de montar qualquer componente Pyomo, `Model.build()` chama
-`validate_problem_config(data)` (`core/validation.py`), que lê os 5 YAMLs do problema
-(`model_sets`/`model_parameters`/`model_variables`/`model_constraints`/`model_objective`) e
-confere:
+`validate_problem_config(data)` (`core/validation.py`), que lê os 5 YAMLs obrigatórios do
+problema (`model_sets`/`model_parameters`/`model_variables`/`model_constraints`/
+`model_objective`) — mais `model_expressions.yaml`, se ele existir — e confere:
 
 - `source: data.<atributo>` em Sets/Parameters — prefixo correto e atributo existente em `data`.
-- `index` em Parameters/Variables — referencia um Set de fato declarado em `model_sets.yaml`.
+- `index` em Parameters/Variables/Expressions/Constraints — referencia um Set de fato declarado
+  em `model_sets.yaml`.
 - `domain` em Variables — um dos domínios conhecidos (`Reals`, `NonNegativeReals`, `Integers`,
   `NonNegativeIntegers`, `Binary`).
-- `rules_class` em Constraints/Objective — importável, e cada constraint/objective habilitada
-  tem um método correspondente na classe.
+- `rules_class` em Expressions/Constraints/Objective — importável, e cada expression/
+  constraint/objective habilitada tem um método correspondente na classe.
 - `default`/`sense` em Objective — `default` aponta pra um objective declarado, `sense` é
   `minimize` ou `maximize`.
 
 Sem essa validação, cada um desses erros só aparecia fundo dentro do Pyomo, como
 `AttributeError`/`KeyError` sem indicar qual arquivo ou campo era o problema — e só um de cada
 vez, exigindo várias rodadas de tentativa e erro. A validação roda de uma vez, junta **todos**
-os problemas encontrados nos 5 arquivos e levanta um único `ConfigValidationError` com a lista
-completa. Constraints desabilitadas (`enabled: false`) são ignoradas, já que nunca chegam a
-rodar.
+os problemas encontrados nos arquivos presentes e levanta um único `ConfigValidationError` com a
+lista completa. Constraints desabilitadas (`enabled: false` estático) são ignoradas, já que
+nunca chegam a rodar — expressions não têm esse conceito, então toda expression declarada tem
+seu método sempre validado.
 
 ## Diagnóstico de infeasibilidade
 
@@ -328,6 +358,7 @@ problems/<nome>/
 │   ├── model_sets.yaml
 │   ├── model_parameters.yaml
 │   ├── model_variables.yaml
+│   ├── model_expressions.yaml     # opcional — rules_class: problems.<nome>.rules.<Nome>Rules
 │   ├── model_constraints.yaml     # rules_class: problems.<nome>.rules.<Nome>Rules
 │   ├── model_objective.yaml       # rules_class: problems.<nome>.rules.<Nome>Objectives
 │   └── model_solver.yaml          # opcional — deep merge sobre o default do framework

@@ -22,6 +22,7 @@ def validate_problem_config(data: ProblemData) -> None:
     sets_config = _load_yaml(config_dir / "model_sets.yaml", errors)
     parameters_config = _load_yaml(config_dir / "model_parameters.yaml", errors)
     variables_config = _load_yaml(config_dir / "model_variables.yaml", errors)
+    expressions_config = _load_yaml_if_present(config_dir / "model_expressions.yaml", errors)
     constraints_config = _load_yaml(config_dir / "model_constraints.yaml", errors)
     objective_config = _load_yaml(config_dir / "model_objective.yaml", errors)
 
@@ -32,6 +33,8 @@ def validate_problem_config(data: ProblemData) -> None:
         _validate_parameters(parameters_config, data, declared_sets, errors)
     if variables_config is not None:
         _validate_variables(variables_config, declared_sets, errors)
+    if expressions_config is not None:
+        _validate_expressions(expressions_config, declared_sets, errors)
     if constraints_config is not None:
         _validate_constraints(constraints_config, data, declared_sets, errors)
     if objective_config is not None:
@@ -58,6 +61,13 @@ def _load_yaml(path: Path, errors: list[str]) -> dict[str, Any] | None:
         errors.append(f"{path.name}: conteúdo do arquivo deve ser um mapeamento (dict).")
         return None
     return loaded
+
+
+def _load_yaml_if_present(path: Path, errors: list[str]) -> dict[str, Any] | None:
+    """Como `_load_yaml`, mas arquivo ausente não é erro — usado por config opcional (expressions)."""
+    if not path.exists():
+        return None
+    return _load_yaml(path, errors)
 
 
 def _require_dict(
@@ -191,6 +201,21 @@ def _validate_constraints(
         elif not enabled_spec:
             continue
         _validate_rule_method(rules_cls, name, "model_constraints.yaml", "constraint", errors)
+
+
+def _validate_expressions(
+    config: dict[str, Any], declared_sets: set[str], errors: list[str]
+) -> None:
+    """Valida 'rules_class' e a seção 'expressions' — sem 'enabled', toda expression é fórmula fixa."""
+    rules_cls = _import_rule(config.get("rules_class"), "model_expressions.yaml", errors)
+    expressions = _require_dict(config, "expressions", "model_expressions.yaml", errors)
+    if expressions is None:
+        return
+    for name, spec in expressions.items():
+        spec = spec or {}
+        context = f"model_expressions.yaml: expression '{name}'"
+        _validate_index(spec.get("index", []), declared_sets, context, errors)
+        _validate_rule_method(rules_cls, name, "model_expressions.yaml", "expression", errors)
 
 
 def _validate_objective(config: dict[str, Any], errors: list[str]) -> None:
