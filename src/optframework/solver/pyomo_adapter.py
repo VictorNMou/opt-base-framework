@@ -16,6 +16,7 @@ from optframework.solver.infeasibility.registry import get as get_infeasibility_
 from optframework.solver.metrics import build_solve_metrics
 from optframework.solver.reporter import Reporter
 from optframework.solver.sensitivity import SensitivityAnalyzer
+from optframework.solver.solve_compat import solve_dropping_unsupported_kwargs
 
 _CONFIG_DIR = Path(__file__).parent / "config"
 
@@ -134,17 +135,14 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
         solver_name = self._require(spec, "solver_name")
         opt = pyo.SolverFactory(solver_name)
         opt.options.update(spec.get("options", {}))
-        solve_kwargs: dict[str, object] = {
+        desired_kwargs: dict[str, object] = {
             "tee": spec.get("tee", False),
             "symbolic_solver_labels": True,
             "load_solutions": False,
+            "warmstart": warmstart,
         }
-        if warmstart:
-            # Só inclui a chave quando pedida: alguns solvers clássicos via NL-writer (ex.:
-            # ipopt) rejeitam 'warmstart' mesmo como False — não é uma opção que existe pra eles.
-            solve_kwargs["warmstart"] = True
         start = time.perf_counter()
-        raw_results = opt.solve(model, **solve_kwargs)
+        raw_results = solve_dropping_unsupported_kwargs(opt, model, solver_name, desired_kwargs)
         metrics = build_solve_metrics(raw_results, time.perf_counter() - start)
         return solver_name, raw_results, metrics
 
