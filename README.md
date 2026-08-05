@@ -23,6 +23,39 @@ Itens selecionados: ['B', 'C']
 Valor total: 220
 ```
 
+## Usando o framework em outro projeto
+
+Este repo é o núcleo (`src/optframework/`) — **não é um template pra clonar**. `problems/` e
+`tests/` aqui dentro são só exemplos/fixtures de desenvolvimento do próprio framework; um
+projeto novo declara `opt-base-framework` como dependência (repo público, sem precisar de
+token) e nunca toca em `src/`:
+
+```bash
+uv init meu-projeto && cd meu-projeto
+uv add "opt-base-framework @ git+https://github.com/VictorNMou/opt-base-framework.git@v0.2.0"
+```
+
+Sobe a versão trocando a tag (`@v0.3.0`, etc.) e rodando `uv lock --upgrade-package
+opt-base-framework` — sem nunca copiar `src/`. Isso vale tanto pra um projeto novo quanto pra
+incorporar o framework num otimizador que já existe: a única diferença é se `problems/<nome>/`
+é a primeira pasta do projeto ou mais uma dentro de um projeto maior.
+
+Pra gerar a estrutura de um problema novo (`config/` + `data_loader.py` + `rules.py` +
+`run.py`), use o `optframework-new` — instalado junto com a dependência, entry point de
+`src/optframework/scaffold/`:
+
+```bash
+uv run optframework-new roteirizacao_frota
+uv run python -m problems.roteirizacao_frota.run   # já roda: placeholder minimize sum(x)
+```
+
+`--dest` muda a pasta raiz (default `problems`, precisa ser relativa — vira prefixo do import
+Python) e `--force` sobrescreve um `problems/<nome>/` já existente. O scaffold gerado é
+propositalmente mínimo (um Set, uma Variable, um Objective trivial) só pra provar que a
+dependência + o import funcionam de ponta a ponta — o conteúdo real do problema (Sets reais,
+Constraints, `data_loader.py` de verdade) é você quem escreve por cima, seguindo a seção
+"Como criar um problema novo" abaixo.
+
 ## Arquitetura
 
 O núcleo (`src/optframework/`) monta o modelo em camadas, cada uma lendo sua própria
@@ -350,7 +383,10 @@ Chamada explícita, não automática: quem decide se/quando exportar é o `run.p
 
 ## Como criar um problema novo
 
-Cada problema vive em `problems/<nome>/`, reaproveitando 100% do núcleo:
+Cada problema vive em `problems/<nome>/`, reaproveitando 100% do núcleo. `optframework-new
+<nome>` (ver seção "Usando o framework em outro projeto") gera esse layout — a estrutura
+abaixo é a referência de onde cada pedaço vai, útil tanto pra ler o que o scaffold gerou
+quanto pra montar à mão, se preferir:
 
 ```
 problems/<nome>/
@@ -367,7 +403,9 @@ problems/<nome>/
 └── run.py                         # main(): load_data -> MilpStrategy -> strategy.solve(model, data) -> imprime/reporta
 ```
 
-`problems/exemplo_knapsack/` é a referência completa — copie a estrutura e adapte.
+`problems/exemplo_knapsack/` é a referência completa dentro deste próprio repo (usada nos
+testes/exemplos do framework); num projeto consumidor, `optframework-new` gera o equivalente
+sem precisar copiar nada daqui.
 
 ## Desenvolvimento
 
