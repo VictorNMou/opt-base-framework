@@ -62,6 +62,42 @@ def test_build_attaches_indexed_constraint_one_per_index(tmp_path: Path) -> None
     assert set(model.limite_individual.keys()) == {"p1", "p2"}
 
 
+def test_build_attaches_expressions_before_constraints_reference_them(tmp_path: Path) -> None:
+    _write_valid_config(tmp_path)
+    (tmp_path / "model_expressions.yaml").write_text(
+        "rules_class: tests.strategy.fixtures.FakeRules\n"
+        "expressions:\n  volume:\n    index: [PRODUTOS]\n"
+    )
+    (tmp_path / "model_constraints.yaml").write_text(
+        "rules_class: tests.strategy.fixtures.FakeRules\n"
+        "constraints:\n"
+        "  capacidade: {}\n"
+        "  limite_volume:\n"
+        "    index: [PRODUTOS]\n"
+    )
+    data = SimpleNamespace(
+        config_dir=str(tmp_path), produtos=["p1", "p2"], capacidade=10.0
+    )
+
+    model = Model(data).build()
+
+    assert isinstance(model.volume, pyo.Expression)
+    assert isinstance(model.limite_volume, pyo.Constraint)
+    assert set(model.limite_volume.keys()) == {"p1", "p2"}
+
+
+def test_build_without_expressions_file_does_not_raise(tmp_path: Path) -> None:
+    _write_valid_config(tmp_path)
+    assert not (tmp_path / "model_expressions.yaml").exists()
+    data = SimpleNamespace(
+        config_dir=str(tmp_path), produtos=["p1", "p2"], capacidade=10.0
+    )
+
+    model = Model(data).build()
+
+    assert list(model.component_objects(pyo.Expression)) == []
+
+
 def test_build_invalid_config_raises_before_attaching_anything(tmp_path: Path) -> None:
     _write_valid_config(tmp_path)
     (tmp_path / "model_sets.yaml").write_text(
