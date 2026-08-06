@@ -132,6 +132,74 @@ def test_valid_config_does_not_raise(tmp_path: Path) -> None:
         ),
         pytest.param(
             {
+                "model_variables.yaml": (
+                    "variables:\n  producao:\n"
+                    "    index: [PRODUTOS]\n"
+                    "    domain: NonNegativeReals\n"
+                    "    within: PRODUTOS\n"
+                )
+            },
+            "não pode declarar 'domain' e 'within' ao mesmo tempo",
+            id="variable_domain_and_within_together",
+        ),
+        pytest.param(
+            {
+                "model_variables.yaml": (
+                    "variables:\n  producao:\n    index: [PRODUTOS]\n    within: SET_INEXISTENTE\n"
+                )
+            },
+            "within 'SET_INEXISTENTE' não é um Set declarado",
+            id="variable_within_undeclared_set",
+        ),
+        pytest.param(
+            {
+                "model_variables.yaml": (
+                    "variables:\n  producao:\n"
+                    "    index: [PRODUTOS]\n"
+                    "    domain: NonNegativeReals\n"
+                    "    bounds: [0]\n"
+                )
+            },
+            r"'bounds' deve ser uma lista \[lower, upper\]",
+            id="variable_bounds_wrong_length",
+        ),
+        pytest.param(
+            {
+                "model_variables.yaml": (
+                    "variables:\n  producao:\n"
+                    "    index: [PRODUTOS]\n"
+                    "    domain: NonNegativeReals\n"
+                    "    bounds: [0, [not, valid]]\n"
+                )
+            },
+            "valor de 'bounds' inválido",
+            id="variable_bounds_invalid_side",
+        ),
+        pytest.param(
+            {
+                "model_variables.yaml": (
+                    "variables:\n  producao:\n"
+                    "    index: [PRODUTOS]\n"
+                    "    domain: NonNegativeReals\n"
+                    "    bounds: [0, data.inexistente]\n"
+                )
+            },
+            "não tem esse atributo",
+            id="variable_bounds_source_attribute_missing",
+        ),
+        pytest.param(
+            {
+                "model_parameters.yaml": (
+                    "parameters:\n  capacidade_max:\n"
+                    "    source: data.capacidade\n"
+                    "    within: SET_INEXISTENTE\n"
+                )
+            },
+            "within 'SET_INEXISTENTE' não é um Set declarado",
+            id="parameter_within_undeclared_set",
+        ),
+        pytest.param(
+            {
                 "model_constraints.yaml": (
                     "rules_class: tests.strategy.fixtures.Inexistente\n"
                     "constraints:\n  capacidade: {}\n"
@@ -327,6 +395,33 @@ def test_valid_config_with_dynamic_enabled_constraint_does_not_raise(tmp_path: P
         )
     }
     data = _write_files(tmp_path, overrides)
+
+    validate_problem_config(data)
+
+
+def test_valid_config_with_variable_bounds_and_within_does_not_raise(tmp_path: Path) -> None:
+    overrides = {
+        "model_sets.yaml": (
+            "sets:\n  PRODUTOS:\n    source: data.produtos\n  VALIDOS:\n    source: data.validos\n"
+        ),
+        "model_variables.yaml": (
+            "variables:\n"
+            "  producao:\n"
+            "    index: [PRODUTOS]\n"
+            "    domain: NonNegativeReals\n"
+            "    bounds: [0, data.capacidade]\n"
+            "  escolha:\n"
+            "    index: [PRODUTOS]\n"
+            "    within: VALIDOS\n"
+        ),
+        "model_parameters.yaml": (
+            "parameters:\n  capacidade_max:\n"
+            "    source: data.capacidade\n"
+            "    within: VALIDOS\n"
+        ),
+    }
+    data = _write_files(tmp_path, overrides)
+    data.validos = ["p1", "p2"]
 
     validate_problem_config(data)
 

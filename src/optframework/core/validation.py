@@ -32,7 +32,7 @@ def validate_problem_config(data: ProblemData) -> None:
     if parameters_config is not None:
         _validate_parameters(parameters_config, data, declared_sets, errors)
     if variables_config is not None:
-        _validate_variables(variables_config, declared_sets, errors)
+        _validate_variables(variables_config, data, declared_sets, errors)
     if expressions_config is not None:
         _validate_expressions(expressions_config, declared_sets, errors)
     if constraints_config is not None:
@@ -96,6 +96,39 @@ def _validate_source(source: object, data: ProblemData, context: str, errors: li
         )
 
 
+def _validate_within(
+    within: object, declared_sets: set[str], context: str, errors: list[str]
+) -> None:
+    """Valida que `within` referencia um Set já declarado em model_sets.yaml."""
+    if within is None:
+        return
+    if within not in declared_sets:
+        errors.append(f"{context}: within '{within}' não é um Set declarado em model_sets.yaml.")
+
+
+def _validate_bounds(
+    bounds: object, data: ProblemData, context: str, errors: list[str]
+) -> None:
+    """Valida `bounds: [lower, upper]` — cada lado é número, `null` ou `data.<atributo>`."""
+    if bounds is None:
+        return
+    if not isinstance(bounds, list) or len(bounds) != 2:
+        errors.append(
+            f"{context}: 'bounds' deve ser uma lista [lower, upper], recebido {bounds!r}."
+        )
+        return
+    for side in bounds:
+        if side is None or isinstance(side, (int, float)):
+            continue
+        if isinstance(side, str) and side.startswith("data."):
+            _validate_source(side, data, context, errors)
+            continue
+        errors.append(
+            f"{context}: valor de 'bounds' inválido {side!r} "
+            "(deve ser número, null ou 'data.<atributo>')."
+        )
+
+
 def _validate_index(
     index: object, declared_sets: set[str], context: str, errors: list[str]
 ) -> None:
@@ -129,7 +162,7 @@ def _validate_parameters(
     declared_sets: set[str],
     errors: list[str],
 ) -> None:
-    """Valida a seção 'parameters': source de cada parameter e seus index contra os Sets."""
+    """Valida a seção 'parameters': source, index e within de cada parameter."""
     parameters = _require_dict(config, "parameters", "model_parameters.yaml", errors)
     if parameters is None:
         return
@@ -138,12 +171,13 @@ def _validate_parameters(
         context = f"model_parameters.yaml: parameter '{name}'"
         _validate_source(spec.get("source"), data, context, errors)
         _validate_index(spec.get("index", []), declared_sets, context, errors)
+        _validate_within(spec.get("within"), declared_sets, context, errors)
 
 
 def _validate_variables(
-    config: dict[str, Any], declared_sets: set[str], errors: list[str]
+    config: dict[str, Any], data: ProblemData, declared_sets: set[str], errors: list[str]
 ) -> None:
-    """Valida a seção 'variables': index contra os Sets e domain contra os domínios conhecidos."""
+    """Valida a seção 'variables': index, domain/within e bounds de cada variable."""
     variables = _require_dict(config, "variables", "model_variables.yaml", errors)
     if variables is None:
         return
@@ -151,11 +185,19 @@ def _validate_variables(
         spec = spec or {}
         context = f"model_variables.yaml: variable '{name}'"
         _validate_index(spec.get("index", []), declared_sets, context, errors)
-        domain = spec.get("domain", "Reals")
-        if domain not in _DOMAINS:
-            errors.append(
-                f"{context}: domain '{domain}' desconhecido (válidos: {sorted(_DOMAINS)})."
-            )
+        domain = spec.get("domain")
+        within = spec.get("within")
+        if domain is not None and within is not None:
+            errors.append(f"{context}: não pode declarar 'domain' e 'within' ao mesmo tempo.")
+        elif within is not None:
+            _validate_within(within, declared_sets, context, errors)
+        else:
+            domain = domain or "Reals"
+            if domain not in _DOMAINS:
+                errors.append(
+                    f"{context}: domain '{domain}' desconhecido (válidos: {sorted(_DOMAINS)})."
+                )
+        _validate_bounds(spec.get("bounds"), data, context, errors)
 
 
 def _import_rule(dotted_path: object, filename: str, errors: list[str]) -> type | None:

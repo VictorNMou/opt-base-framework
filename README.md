@@ -199,6 +199,37 @@ Sem `default`, comportamento inalterado — nenhuma config existente precisa mud
 cedo, sinaliza dado faltando); com `default: 0` declarado, o índice ausente silenciosamente
 vira `0`. A escolha de declarar ou não é do problema, não do framework.
 
+## Bounds e within em Variables e Parameters
+
+Além de `domain`, uma Variable em `model_variables.yaml` pode declarar `bounds` e/ou `within`:
+
+```yaml
+variables:
+  producao:
+    index: [PRODUTOS]
+    domain: NonNegativeReals
+    bounds: [0, data.capacidade_max]   # lower/upper: número literal, null ou data.<atributo>
+
+  escolha:
+    index: [PRODUTOS]
+    within: PRODUTOS_VALIDOS           # em vez de domain: restringe a um Set já declarado
+```
+
+`bounds` é `[lower, upper]`, repassado pro `pyo.Var(bounds=...)`. Cada lado aceita um número
+fixo (mesmo valor pra todo índice), `null` (sem limite naquele lado) ou `data.<atributo>`
+resolvido por índice (mesmo mecanismo `source` de Parameters) — quando pelo menos um lado vem de
+`data`, o framework monta uma bounds rule por trás; se os dois lados são literais, vira a tupla
+`(lower, upper)` direto, sem overhead de rule.
+
+`within` é o nome real do parâmetro do Pyomo (`domain` é só um alias mais recente) — aqui ele
+serve pra restringir a Variable a um Set customizado já declarado em `model_sets.yaml`, em vez de
+um dos domínios embutidos. Isso ajuda a pegar erro de indexação cedo: um valor fora do Set vira
+erro do Pyomo na hora, não silencioso. Por serem aliases do mesmo argumento, `domain` e `within`
+são mutuamente exclusivos na mesma Variable — declarar os dois é erro de config.
+
+Parameters também aceitam `within` (mesmo Set customizado, mesmo motivo), mas não têm `domain` —
+só Variables têm domínio embutido por padrão.
+
 ## Validação de config
 
 Antes de montar qualquer componente Pyomo, `Model.build()` chama
@@ -210,7 +241,10 @@ problema (`model_sets`/`model_parameters`/`model_variables`/`model_constraints`/
 - `index` em Parameters/Variables/Expressions/Constraints — referencia um Set de fato declarado
   em `model_sets.yaml`.
 - `domain` em Variables — um dos domínios conhecidos (`Reals`, `NonNegativeReals`, `Integers`,
-  `NonNegativeIntegers`, `Binary`).
+  `NonNegativeIntegers`, `Binary`), quando `within` não é usado (os dois juntos são erro).
+- `within` em Variables/Parameters — referencia um Set de fato declarado em `model_sets.yaml`.
+- `bounds` em Variables — lista de exatamente 2 elementos, cada um número, `null` ou
+  `data.<atributo>` existente em `data`.
 - `rules_class` em Expressions/Constraints/Objective — importável, e cada expression/
   constraint/objective habilitada tem um método correspondente na classe.
 - `default`/`sense` em Objective — `default` aponta pra um objective declarado, `sense` é

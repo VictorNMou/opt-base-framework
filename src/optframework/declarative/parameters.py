@@ -22,5 +22,7 @@ class Parameters(YamlComponentBuilder):
             kwargs = {"initialize": values, "mutable": mutable}
             if "default" in spec:
                 kwargs["default"] = spec["default"]
+            if "within" in spec:
+                kwargs["within"] = getattr(model, spec["within"])
             param = pyo.Param(*index_sets, **kwargs)
             self._add_component(model, name, param, overwrite=overwrite)
