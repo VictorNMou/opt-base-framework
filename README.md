@@ -56,6 +56,32 @@ dependência + o import funcionam de ponta a ponta — o conteúdo real do probl
 Constraints, `data_loader.py` de verdade) é você quem escreve por cima, seguindo a seção
 "Como criar um problema novo" abaixo.
 
+### Bootstrap completo de projeto novo: template `copier`
+
+O fluxo acima (`uv init` + `uv add` + `optframework-new`) cobre tanto projeto novo quanto
+incorporar o framework num otimizador que já existe. Pra projeto novo especificamente, um
+[template `copier`](https://copier.readthedocs.io/) em `copier.yml`/`template/` (neste mesmo
+repo — não é um repo separado pra manter sincronizado) faz os três passos de uma vez, já com a
+dependência fixada na tag certa:
+
+```bash
+uvx copier copy --trust gh:VictorNMou/opt-base-framework --vcs-ref v0.3.0 meu-projeto
+```
+
+`--trust` é obrigatório porque o template roda `_tasks` (`uv sync` +
+`uv run optframework-new`) depois de gerar os arquivos — só use `--trust` em templates que você
+confia, já que isso executa shell de verdade. O template pergunta `project_name`,
+`description` (opcional), `problem_name` (opcional — Enter pula, dá pra rodar
+`optframework-new` manualmente depois) e `framework_ref` (a tag a fixar no `pyproject.toml`
+gerado; default é a própria `--vcs-ref` usada acima). Gera `pyproject.toml` (com a dependência
+já apontando pra essa tag), `.gitignore`, `README.md` e, se `problem_name` foi respondido,
+`problems/<nome>/` completo — tudo isso rodando `optframework-new` por baixo, não duplicando a
+lógica de scaffold.
+
+Como é um template `copier` (não `cookiecutter`), gravar `.copier-answers.yml` no projeto
+gerado habilita `copier update` depois — reaplica mudanças futuras do template (`copier.yml`/
+`template/` neste repo) num projeto já criado, o que `cookiecutter` não faz.
+
 ## Arquitetura
 
 O núcleo (`src/optframework/`) monta o modelo em camadas, cada uma lendo sua própria
