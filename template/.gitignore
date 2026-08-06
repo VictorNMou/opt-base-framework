@@ -1,0 +1,21 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Test/coverage artifacts
+.coverage
+coverage_html_report/
+.pytest_cache/
+
+# Saída gerada em runtime (Reporter, export JSON)
+reports/
+
+# Cache do ruff
+.ruff_cache/

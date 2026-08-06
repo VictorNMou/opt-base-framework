@@ -1,0 +1,37 @@
+# {{ project_name }}
+{% if description %}
+{{ description }}
+{% endif %}
+Projeto gerado a partir do template do
+[opt-base-framework](https://github.com/VictorNMou/opt-base-framework), com a dependência
+fixada em `{{ framework_ref }}`.
+
+## Quickstart
+
+```bash
+uv sync
+{% if problem_name -%}
+uv run python -m problems.{{ problem_name }}.run
+{% else -%}
+uv run optframework-new <nome_do_problema>
+{% endif -%}
+```
+
+## Próximos passos
+
+{% if problem_name -%}
+- Edite `problems/{{ problem_name }}/data_loader.py` com os dados reais do problema.
+- Declare Sets/Parameters/Variables/Constraints/Objective em
+  `problems/{{ problem_name }}/config/`.
+- Implemente os métodos correspondentes em `problems/{{ problem_name }}/rules.py`.
+- Pra adicionar outro problema depois: `uv run optframework-new <outro_nome>`.
+{% else -%}
+- Rode `uv run optframework-new <nome>` pra gerar o primeiro problema
+  (`problems/<nome>/`: config YAML + `data_loader.py` + `rules.py` + `run.py`).
+{% endif -%}
+- Pra subir a versão do framework: troque `{{ framework_ref }}` pela tag nova em
+  `pyproject.toml` e rode `uv lock --upgrade-package opt-base-framework`.
+
+Documentação completa do núcleo (validação de config, constraints indexadas/dinâmicas,
+diagnóstico de infeasibilidade, sensibilidade, NLP, etc.) no
+[README do framework](https://github.com/VictorNMou/opt-base-framework).

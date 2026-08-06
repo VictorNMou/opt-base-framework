@@ -1,0 +1,37 @@
+_min_copier_version: "9.0.0"
+_subdirectory: template
+
+project_name:
+  type: str
+  help: "Nome do projeto (usado como 'name' no pyproject.toml)"
+  validator: >-
+    {% if not (project_name | regex_search('^[a-z][a-z0-9-]*$')) %}
+    Use minúsculas, dígitos e hífen, começando com letra (ex.: precificacao-varejo).
+    {% endif %}
+
+description:
+  type: str
+  help: "Descrição curta do projeto (opcional)"
+  default: ""
+
+problem_name:
+  type: str
+  help: >-
+    Nome do primeiro problema, em snake_case (opcional — Enter pula o scaffold; dá pra
+    rodar 'optframework-new' depois)
+  default: ""
+  validator: >-
+    {% if problem_name and not (problem_name | regex_search('^[a-z][a-z0-9]*(_[a-z0-9]+)*$')) %}
+    Use snake_case, começando com letra minúscula (ex.: roteirizacao_frota).
+    {% endif %}
+
+framework_ref:
+  type: str
+  help: "Tag/branch do opt-base-framework a fixar como dependência"
+  default: "{{ _copier_conf.vcs_ref or _copier_conf.vcs_ref_hash }}"
+
+_tasks:
+  - "uv sync"
+  - >-
+    {% if problem_name %}uv run optframework-new {{ problem_name }}{% else %}echo
+    'Scaffold do primeiro problema pulado -- rode: uv run optframework-new <nome>'{% endif %}
