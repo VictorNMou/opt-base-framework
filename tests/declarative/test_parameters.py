@@ -104,3 +104,29 @@ def test_attach_to_model_respects_mutable_flag(tmp_path: Path) -> None:
     Parameters().attach_to_model(model, data)
 
     assert model.capacidade_max.mutable
+
+
+def test_attach_to_model_within_restricts_to_custom_set(tmp_path: Path) -> None:
+    (tmp_path / "model_sets.yaml").write_text(
+        "sets:\n  PRODUTOS:\n    source: data.produtos\n  VALIDOS:\n    source: data.validos\n"
+    )
+    (tmp_path / "model_parameters.yaml").write_text(
+        "parameters:\n"
+        "  substituto:\n"
+        "    index: [PRODUTOS]\n"
+        "    source: data.substituto\n"
+        "    within: VALIDOS\n"
+    )
+    data = SimpleNamespace(
+        config_dir=str(tmp_path),
+        produtos=["p1", "p2"],
+        validos=["p1", "p2"],
+        substituto={"p1": "p2", "p2": "p1"},
+    )
+    model = pyo.ConcreteModel()
+    Sets().attach_to_model(model, data)
+
+    Parameters().attach_to_model(model, data)
+
+    assert model.substituto.domain is model.VALIDOS
+    assert model.substituto.extract_values() == {"p1": "p2", "p2": "p1"}
