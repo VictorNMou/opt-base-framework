@@ -90,7 +90,7 @@ configuração YAML do problema:
 | Camada | O que é | Onde mora a lógica |
 |---|---|---|
 | Validação de config | Checa os 5 YAMLs obrigatórios do problema (+ `model_expressions.yaml`, se existir) antes de montar qualquer `pyo.Constraint` | Automática, sempre ligada, roda no início de `Model.build()`; agrega **todos** os problemas encontrados num único `ConfigValidationError` em vez de falhar um de cada vez; `core/validation.py` |
-| `Sets`/`Parameters`/`Variables` | Metadados puros (índices, domínio, fonte de dado) | 100% YAML — sem código Python por problema; Parameters aceitam `default` opcional (ver seção abaixo) |
+| `Sets`/`Parameters`/`Variables` | Metadados puros (índices, domínio, fonte de dado) | 100% YAML — sem código Python por problema; Parameters aceitam `default` opcional, Variables/Parameters aceitam `within`, Variables aceitam `bounds` (ver "Referência de configuração YAML" abaixo) |
 | `Expressions` | Fórmulas Pyomo reutilizáveis por várias constraints/objective | Opcional (`model_expressions.yaml`, ver seção abaixo); mesmo padrão de `Rules`/`index` de Constraints, sem `enabled` |
 | `Constraints`/`Objective` | Matemática Pyomo (expressões) | Uma classe `Rules` por problema, um **método nomeado** por constraint/objective; constraints aceitam `index` e `enabled` dinâmico opcionais (ver seções abaixo) |
 | `Solver` | Resolve via `pyo.SolverFactory` | Perfis (`default`/`optimal`/`faster_not_optimal`) em `model_solver.yaml` de nível framework, usando [HiGHS](https://highs.dev/) (`highspy`, sem binário de sistema); um `model_solver.yaml` opcional em `problems/<nome>/config/` faz *deep merge* por cima (só as chaves declaradas sobrescrevem, recursivamente); `solve_compat.py` descobre e cacheia, por `solver_name`, quais kwargs cada interface aceita |
@@ -105,80 +105,13 @@ configuração YAML do problema:
 `Model.build()` (`core/model.py`) monta tudo na ordem
 `sets → parameters → variables → expressions → constraints → objective`.
 
-## Expressions reutilizáveis
+## Referência de configuração YAML
 
-`model_expressions.yaml` é **opcional** — problemas sem fórmula reutilizável não precisam do
-arquivo. Quando existe, segue o mesmo padrão de `model_constraints.yaml` (`rules_class` próprio
-+ `index` opcional), mas sem `enabled`: uma expression não é liga/desliga, é só uma fórmula que
-vira um `pyo.Expression` nomeado, referenciável por qualquer constraint/objective declarada
-depois dela:
+Como declarar cada camada do modelo via YAML — na mesma ordem em que `Model.build()` monta o
+modelo (`sets → parameters → variables → expressions → constraints → objective`), fechando com
+a validação que confere tudo isso de uma vez antes do primeiro `pyo.Constraint` ser montado.
 
-```yaml
-rules_class: problems.<nome>.rules.<Nome>Rules
-expressions:
-  volume:
-    index: [PRODUTOS]
-```
-
-```python
-def volume(self, model: pyo.ConcreteModel, produto: str) -> object:
-    return model.producao[produto] * model.densidade[produto]
-```
-
-Constraints e o objective podem então referenciar `model.volume[produto]` em vez de repetir a
-fórmula em cada método — útil quando várias constraints (ou constraint + objective) dependem da
-mesma expressão intermediária. `Model.build()` anexa `Expressions` **antes** de `Constraints`/
-`Objective`, exatamente pra garantir que `model.volume` já exista quando as rules delas rodarem.
-`index` referenciando um Set não declarado é pego pela validação de config, mesma checagem já
-aplicada a `Variables`/`Parameters`/Constraints.
-
-## Constraints indexadas
-
-Uma família de constraint em `model_constraints.yaml` pode declarar `index`, igual a
-`Variables`/`Parameters`, para virar uma `pyo.Constraint` indexada em vez de escalar — uma
-instância por combinação dos Sets listados:
-
-```yaml
-constraints:
-  limite_por_produto:
-    index: [PRODUTOS]
-```
-
-O método correspondente na `Rules` recebe `model` mais um argumento por Set do `index`, na
-mesma ordem (padrão de `rule` indexada do próprio Pyomo):
-
-```python
-def limite_por_produto(self, model: pyo.ConcreteModel, produto: str) -> bool:
-    return model.producao[produto] <= model.capacidade_max[produto]
-```
-
-Sem `index` (ou `index: []`), a constraint continua escalar como antes — nenhuma config
-existente precisa mudar. `index` referenciando um Set não declarado em `model_sets.yaml` é
-pego pela validação de config (mesma checagem já aplicada a `Variables`/`Parameters`).
-
-## Constraints habilitadas dinamicamente
-
-`enabled` em `model_constraints.yaml` aceita um bool estático (como já era) ou uma string
-`data.<atributo>`, resolvida em `data` no momento do build — igual ao `source` de
-Sets/Parameters. Útil quando a família de constraint só faz sentido pra uma parte das
-instâncias do problema (ex.: uma constraint por grupo de preço que só existe se o lote tiver
-mais de um item comparável):
-
-```yaml
-constraints:
-  coerencia_grupo_preco:
-    enabled: data.coerencia_grupo_preco_habilitada
-```
-
-`ProblemData` expõe esse atributo como um `bool` já calculado (tipicamente por um
-`ConstraintsPreprocessor`, a partir dos dados do lote) — o framework só resolve `getattr`, não
-decide a regra de negócio por trás do flag. Com `enabled` dinâmico, a validação de config não
-consegue saber de antemão se a constraint vai estar ligada ou não, então **sempre** confere que
-o método existe na `Rules` (diferente de `enabled: false` estático, que pula essa checagem —
-já que o método nunca vai rodar). `enabled` apontando pra um atributo inexistente em `data` é
-pego pela validação de config, mesma mensagem já usada pra `source` de Sets/Parameters.
-
-## Parameters com valor default
+### Parameters com valor default
 
 Um Parameter em `model_parameters.yaml` pode declarar `default`, repassado direto pro
 `pyo.Param(default=...)` — o valor usado quando o índice não aparece em `source`. Sem isso,
@@ -199,7 +132,7 @@ Sem `default`, comportamento inalterado — nenhuma config existente precisa mud
 cedo, sinaliza dado faltando); com `default: 0` declarado, o índice ausente silenciosamente
 vira `0`. A escolha de declarar ou não é do problema, não do framework.
 
-## Bounds e within em Variables e Parameters
+### Bounds e within em Variables e Parameters
 
 Além de `domain`, uma Variable em `model_variables.yaml` pode declarar `bounds` e/ou `within`:
 
@@ -230,7 +163,80 @@ são mutuamente exclusivos na mesma Variable — declarar os dois é erro de con
 Parameters também aceitam `within` (mesmo Set customizado, mesmo motivo), mas não têm `domain` —
 só Variables têm domínio embutido por padrão.
 
-## Validação de config
+### Expressions reutilizáveis
+
+`model_expressions.yaml` é **opcional** — problemas sem fórmula reutilizável não precisam do
+arquivo. Quando existe, segue o mesmo padrão de `model_constraints.yaml` (`rules_class` próprio
++ `index` opcional), mas sem `enabled`: uma expression não é liga/desliga, é só uma fórmula que
+vira um `pyo.Expression` nomeado, referenciável por qualquer constraint/objective declarada
+depois dela:
+
+```yaml
+rules_class: problems.<nome>.rules.<Nome>Rules
+expressions:
+  volume:
+    index: [PRODUTOS]
+```
+
+```python
+def volume(self, model: pyo.ConcreteModel, produto: str) -> object:
+    return model.producao[produto] * model.densidade[produto]
+```
+
+Constraints e o objective podem então referenciar `model.volume[produto]` em vez de repetir a
+fórmula em cada método — útil quando várias constraints (ou constraint + objective) dependem da
+mesma expressão intermediária. `Model.build()` anexa `Expressions` **antes** de `Constraints`/
+`Objective`, exatamente pra garantir que `model.volume` já exista quando as rules delas rodarem.
+`index` referenciando um Set não declarado é pego pela validação de config, mesma checagem já
+aplicada a `Variables`/`Parameters`/Constraints.
+
+### Constraints indexadas
+
+Uma família de constraint em `model_constraints.yaml` pode declarar `index`, igual a
+`Variables`/`Parameters`, para virar uma `pyo.Constraint` indexada em vez de escalar — uma
+instância por combinação dos Sets listados:
+
+```yaml
+constraints:
+  limite_por_produto:
+    index: [PRODUTOS]
+```
+
+O método correspondente na `Rules` recebe `model` mais um argumento por Set do `index`, na
+mesma ordem (padrão de `rule` indexada do próprio Pyomo):
+
+```python
+def limite_por_produto(self, model: pyo.ConcreteModel, produto: str) -> bool:
+    return model.producao[produto] <= model.capacidade_max[produto]
+```
+
+Sem `index` (ou `index: []`), a constraint continua escalar como antes — nenhuma config
+existente precisa mudar. `index` referenciando um Set não declarado em `model_sets.yaml` é
+pego pela validação de config (mesma checagem já aplicada a `Variables`/`Parameters`).
+
+### Constraints habilitadas dinamicamente
+
+`enabled` em `model_constraints.yaml` aceita um bool estático (como já era) ou uma string
+`data.<atributo>`, resolvida em `data` no momento do build — igual ao `source` de
+Sets/Parameters. Útil quando a família de constraint só faz sentido pra uma parte das
+instâncias do problema (ex.: uma constraint por grupo de preço que só existe se o lote tiver
+mais de um item comparável):
+
+```yaml
+constraints:
+  coerencia_grupo_preco:
+    enabled: data.coerencia_grupo_preco_habilitada
+```
+
+`ProblemData` expõe esse atributo como um `bool` já calculado (tipicamente por um
+`ConstraintsPreprocessor`, a partir dos dados do lote) — o framework só resolve `getattr`, não
+decide a regra de negócio por trás do flag. Com `enabled` dinâmico, a validação de config não
+consegue saber de antemão se a constraint vai estar ligada ou não, então **sempre** confere que
+o método existe na `Rules` (diferente de `enabled: false` estático, que pula essa checagem —
+já que o método nunca vai rodar). `enabled` apontando pra um atributo inexistente em `data` é
+pego pela validação de config, mesma mensagem já usada pra `source` de Sets/Parameters.
+
+### Validação de config
 
 Antes de montar qualquer componente Pyomo, `Model.build()` chama
 `validate_problem_config(data)` (`core/validation.py`), que lê os 5 YAMLs obrigatórios do
@@ -258,7 +264,13 @@ lista completa. Constraints desabilitadas (`enabled: false` estático) são igno
 nunca chegam a rodar — expressions não têm esse conceito, então toda expression declarada tem
 seu método sempre validado.
 
-## Diagnóstico de infeasibilidade
+## Comportamento em tempo de solve
+
+O que acontece a partir de `PyomoAdapter.solve()` — diagnóstico de infeasibilidade,
+sensibilidade/métricas do resultado, warm start entre cenários e compatibilidade de kwargs
+entre interfaces de solver diferentes.
+
+### Diagnóstico de infeasibilidade
 
 Quando `PyomoAdapter.solve()` recebe um `termination_condition` infeasible, ele dispara
 automaticamente um analisador de infeasibilidade e anexa o resultado a `result.infeasibility`
@@ -291,7 +303,7 @@ não uma constraint geral (o relaxamento só toca constraints, nunca bounds). Ex
 escopo por ora: parsear o `.ilp`/`.lp` nativo de volta em nomes estruturados, e IIS mínimo via
 deleção iterativa de constraints (o relaxamento elástico reporta candidatas, não a causa única).
 
-## Sensibilidade e métricas do solve
+### Sensibilidade e métricas do solve
 
 `result.sensitivity` (quando `sensitivity.enabled: true` em `model_solver.yaml` — desligado por
 padrão, custa um resolve extra) funciona fixando toda variável binária/inteira no seu valor
@@ -307,7 +319,7 @@ não sobra margem contínua pra precificar a constraint. Isso é esperado, não 
 `upper_bound`/`gap` do schema padrão do Pyomo — `None` quando o solver não os populou, ex. em
 infeasible). `gap` é magnitude pura, não um gap assinado por sentido de otimização.
 
-## Warm start em cenários
+### Warm start em cenários
 
 `ScenarioRunner`/`ScenarioLoop` resolvem a mesma instância de modelo várias vezes sem
 reconstruí-la — o `pyo.ConcreteModel` é reutilizado ao longo de todo o loop de cenários, então
@@ -329,7 +341,7 @@ ver seção NLP abaixo). Isso não é um caso isolado: `symbolic_solver_labels` 
 independente de warm start) quebra o `cyipopt` do mesmo jeito. `_run_solver` não hardcoda esse
 conhecimento por solver — ver `solver/solve_compat.py` na próxima seção.
 
-## Compatibilidade de kwargs entre solvers
+### Compatibilidade de kwargs entre solvers
 
 Cada interface de solver do Pyomo aceita um conjunto diferente de kwargs em `.solve()`: as
 `appsi_*` (HiGHS/Gurobi/CPLEX) são permissivas, mas `ipopt` clássico e `cyipopt` usam um
@@ -355,7 +367,11 @@ A mesma diferença aparece em como cada interface recebe **options** do solver (
 atributo — só aceita `options` como kwarg de `.solve()`. `apply_options()` (mesmo módulo)
 resolve isso com `hasattr(opt, "options")`, sem precisar saber o nome do solver.
 
-## Exemplo NLP: precificação com elasticidade própria e cruzada
+## Exemplos
+
+Problemas de referência dentro do próprio repo, além do knapsack do quickstart.
+
+### Exemplo NLP: precificação com elasticidade própria e cruzada
 
 `problems/exemplo_precificacao/` prova que o núcleo não assume linearidade: mesmo
 `Model.build()`/`MilpStrategy` (registrada também sob `optimization_type="nlp"`), só trocando o
@@ -386,7 +402,7 @@ Sem faixa, o problema não tem ótimo finito — elasticidade cruzada positiva d
 crescer sem limite se um preço qualquer for para o infinito, inflando a demanda dos outros
 produtos por substituição.
 
-### Alternativa self-contida: `cyipopt` em vez do `ipopt` do sistema
+#### Alternativa self-contida: `cyipopt` em vez do `ipopt` do sistema
 
 `ipopt` via binário externo (acima) funciona bem, mas exige instalação à parte, fora do
 controle do `uv`/`pyproject.toml` — um problema real para reprodutibilidade de ambiente. O
