@@ -16,10 +16,7 @@ from optframework.solver.infeasibility.registry import get as get_infeasibility_
 from optframework.solver.metrics import build_solve_metrics
 from optframework.solver.reporter import Reporter
 from optframework.solver.sensitivity import SensitivityAnalyzer
-from optframework.solver.solve_compat import (
-    apply_options,
-    solve_dropping_unsupported_kwargs,
-)
+from optframework.solver.solve_compat import solve_with_compat
 
 _CONFIG_DIR = Path(__file__).parent / "config"
 
@@ -137,15 +134,11 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
         """Resolve via Pyomo medindo tempo de parede; devolve solver_name, raw_results e métricas."""
         solver_name = self._require(spec, "solver_name")
         opt = pyo.SolverFactory(solver_name)
-        desired_kwargs: dict[str, object] = {
-            "tee": spec.get("tee", False),
-            "symbolic_solver_labels": True,
-            "load_solutions": False,
-            "warmstart": warmstart,
-            **apply_options(opt, spec.get("options", {})),
-        }
+        extra_kwargs = {"tee": spec.get("tee", False), "warmstart": warmstart}
         start = time.perf_counter()
-        raw_results = solve_dropping_unsupported_kwargs(opt, model, solver_name, desired_kwargs)
+        raw_results = solve_with_compat(
+            opt, model, solver_name, spec.get("options", {}), extra_kwargs
+        )
         metrics = build_solve_metrics(raw_results, time.perf_counter() - start)
         return solver_name, raw_results, metrics
 

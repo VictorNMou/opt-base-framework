@@ -5,6 +5,7 @@ from optframework.results.sensitivity import (
     SensitivityReport,
     VariableReducedCost,
 )
+from optframework.solver.solve_compat import solve_with_compat
 
 
 class SensitivityAnalyzer:
@@ -30,8 +31,7 @@ class SensitivityAnalyzer:
         sens.rc = pyo.Suffix(direction=pyo.Suffix.IMPORT)
 
         opt = pyo.SolverFactory(self.solver_name)
-        opt.options.update(self.options)
-        raw_results = opt.solve(sens, load_solutions=False, symbolic_solver_labels=True)
+        raw_results = solve_with_compat(opt, sens, self.solver_name, self.options)
 
         if len(raw_results.solution) == 0:
             return SensitivityReport(resolved=False, fixed_variable_count=len(fixed_vars))

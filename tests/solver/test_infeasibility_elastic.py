@@ -1,7 +1,9 @@
 import pyomo.environ as pyo
 import pytest
 
+from optframework.solver.infeasibility import elastic
 from optframework.solver.infeasibility.elastic import ElasticRelaxationAnalyzer
+from tests.solver.fixtures import CyIpoptLikeSolver
 
 
 def _analyzer(**kwargs) -> ElasticRelaxationAnalyzer:
@@ -122,3 +124,22 @@ def test_component_name_collision_raises() -> None:
 
     with pytest.raises(ValueError, match="infeasibility_slacks"):
         _analyzer().analyze(model)
+
+
+def test_analyze_survives_solver_without_options_attribute_and_strict_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Reproduz o solver_name="cyipopt" (PyomoCyIpoptSolver): sem `.options`, rejeita
+    # `symbolic_solver_labels` — antes do fix, `opt.options.update(...)` já crashava com
+    # AttributeError antes de sequer tentar resolver.
+    stub = CyIpoptLikeSolver()
+    monkeypatch.setattr(elastic.pyo, "SolverFactory", lambda _name: stub)
+    model = pyo.ConcreteModel()
+    model.x = pyo.Var(domain=pyo.NonNegativeReals)
+    model.c = pyo.Constraint(expr=model.x >= 1)
+    model.obj = pyo.Objective(expr=model.x, sense=pyo.minimize)
+
+    report = ElasticRelaxationAnalyzer(solver_name="cyipopt").analyze(model)
+
+    assert report.suspected_bound_conflict is True
+    assert stub.calls[-1] == {"load_solutions": False, "options": {}}
