@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "{{ description }}"
 readme = "README.md"
 requires-python = ">=3.12"
+{% set is_release = framework_ref | regex_search('^v?\d+\.\d+\.\d+$') -%}
 dependencies = [
-    "opt-base-framework @ git+https://github.com/VictorNMou/opt-base-framework.git@{{ framework_ref }}",
+    "{% if is_release %}opt-base-framework=={{ framework_ref | regex_replace('^v', '') }}{% else %}opt-base-framework @ git+https://github.com/VictorNMou/opt-base-framework.git@{{ framework_ref }}{% endif %}",
 ]

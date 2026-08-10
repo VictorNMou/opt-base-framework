@@ -27,7 +27,10 @@ problem_name:
 
 framework_ref:
   type: str
-  help: "Tag/branch do opt-base-framework a fixar como dependência"
+  help: >-
+    Versão do opt-base-framework a fixar como dependência. Uma tag `vX.Y.Z` vira pin no
+    PyPI (`opt-base-framework==X.Y.Z`); qualquer outro valor (branch, hash) vira
+    dependência Git fixada nessa ref
   default: "{{ _copier_conf.vcs_ref or _copier_conf.vcs_ref_hash }}"
 
 _tasks:
