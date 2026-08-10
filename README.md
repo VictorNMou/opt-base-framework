@@ -68,21 +68,23 @@ O fluxo acima (`uv init` + `uv add` + `optframework-new`) cobre tanto projeto no
 incorporar o framework a um otimizador que já existe. Para projeto novo especificamente, um
 [template `copier`](https://copier.readthedocs.io/) em `copier.yml`/`template/` (neste mesmo
 repositório — não é um repositório separado para manter sincronizado) executa os três passos de
-uma vez, já com a dependência fixada na tag certa:
+uma vez, já com a dependência fixada na versão certa:
 
 ```bash
-uvx copier copy --trust gh:VictorNMou/opt-base-framework --vcs-ref v0.3.0 meu-projeto
+uvx copier copy --trust gh:VictorNMou/opt-base-framework --vcs-ref v0.5.0 meu-projeto
 ```
 
 `--trust` é obrigatório porque o template executa `_tasks` (`uv sync` +
 `uv run optframework-new`) depois de gerar os arquivos — use `--trust` apenas em templates
 confiáveis, já que a flag executa shell de fato. O template pergunta `project_name`,
 `description` (opcional), `problem_name` (opcional — Enter pula essa etapa, permitindo rodar
-`optframework-new` manualmente depois) e `framework_ref` (a tag a fixar no `pyproject.toml`
-gerado; default é a própria `--vcs-ref` usada acima). Gera `pyproject.toml` (com a dependência já
-apontando para essa tag), `.gitignore`, `README.md` e, se `problem_name` foi respondido,
-`problems/<nome>/` completo — tudo isso executando `optframework-new` internamente, sem duplicar
-a lógica de scaffold.
+`optframework-new` manualmente depois) e `framework_ref` (a versão a fixar no `pyproject.toml`
+gerado; default é a própria `--vcs-ref` usada acima). Se `framework_ref` for uma tag `vX.Y.Z`, a
+dependência gerada aponta pro PyPI (`opt-base-framework==X.Y.Z`); qualquer outro valor (branch,
+hash) vira dependência Git fixada nessa ref — útil pra testar o template a partir de uma branch
+antes de uma tag existir. Gera `pyproject.toml`, `.gitignore`, `README.md` e, se `problem_name`
+foi respondido, `problems/<nome>/` completo — tudo isso executando `optframework-new`
+internamente, sem duplicar a lógica de scaffold.
 
 Por ser um template `copier` (não `cookiecutter`), gravar `.copier-answers.yml` no projeto
 gerado habilita `copier update` posteriormente — reaplica mudanças futuras do template
