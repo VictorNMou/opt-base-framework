@@ -17,6 +17,18 @@ readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Victor Moura", email = "vimoura@solarbr.com.br" }]
 license = "MIT"
+keywords = ["optimization", "pyomo", "milp", "lp", "operations-research", "solver"]
+classifiers = [
+ "Development Status :: 4 - Beta",
+ "Intended Audience :: Science/Research",
+ "License :: OSI Approved :: MIT License",
+ "Operating System :: OS Independent",
+ "Programming Language :: Python :: 3",
+ "Programming Language :: Python :: 3.12",
+ "Programming Language :: Python :: 3.13",
+ "Topic :: Scientific/Engineering :: Mathematics",
+ "Topic :: Software Development :: Libraries :: Python Modules",
+]
 
 # *********************************************
  # * Dependencies
@@ -28,6 +40,11 @@ license = "MIT"
  "highspy>=1.15.1",
  "loguru>=0.7",
 ]
+
+[project.urls]
+Homepage = "https://github.com/VictorNMou/opt-base-framework"
+Repository = "https://github.com/VictorNMou/opt-base-framework"
+Issues = "https://github.com/VictorNMou/opt-base-framework/issues"
 
 # *********************************************
  # * Optional Dependencies (extras)
