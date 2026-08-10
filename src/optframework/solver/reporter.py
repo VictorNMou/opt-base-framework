@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pyomo.environ as pyo
 
+from optframework.logging import logger
 from optframework.results.infeasibility import InfeasibilityReport
 from optframework.results.sensitivity import SensitivityReport
 
@@ -42,4 +43,5 @@ class Reporter:
         path = self.output_dir / f"{kind}{suffix}.txt"
         with open(path, "w", encoding="utf-8") as file:
             dump(ostream=file)
+        logger.debug("Relatório '{}' gravado em '{}'", kind, path)
         return path
