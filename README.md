@@ -27,18 +27,24 @@ Valor total: 220
 
 Este repositório é o núcleo (`src/optframework/`) — **não é um template para clonar**.
 `problems/` e `tests/` aqui dentro são apenas exemplos/fixtures de desenvolvimento do próprio
-framework; um projeto novo declara `opt-base-framework` como dependência (repositório público,
-sem exigir token) e nunca altera `src/`:
+framework; um projeto novo declara `opt-base-framework` como dependência e nunca altera `src/`:
 
 ```bash
 uv init meu-projeto && cd meu-projeto
-uv add "opt-base-framework @ git+https://github.com/VictorNMou/opt-base-framework.git@v0.2.0"
+uv add opt-base-framework
 ```
 
-A versão sobe trocando a tag (`@v0.3.0`, etc.) e rodando `uv lock --upgrade-package
-opt-base-framework` — sem nunca copiar `src/`. Isso vale tanto para um projeto novo quanto para
-incorporar o framework a um otimizador que já existe: a única diferença é se `problems/<nome>/`
-é a primeira pasta do projeto ou mais uma dentro de um projeto maior.
+A versão sobe rodando `uv lock --upgrade-package opt-base-framework` — sem nunca copiar `src/`.
+Isso vale tanto para um projeto novo quanto para incorporar o framework a um otimizador que já
+existe: a única diferença é se `problems/<nome>/` é a primeira pasta do projeto ou mais uma
+dentro de um projeto maior.
+
+Para fixar em uma versão ainda não publicada no PyPI (ex.: testar uma branch), a instalação via
+Git continua funcionando:
+
+```bash
+uv add "opt-base-framework @ git+https://github.com/VictorNMou/opt-base-framework.git@v0.5.0"
+```
 
 Para gerar a estrutura de um problema novo (`config/` + `data_loader.py` + `rules.py` +
 `run.py`), use o `optframework-new` — instalado junto com a dependência, entry point de
