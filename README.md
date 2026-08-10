@@ -370,6 +370,30 @@ A mesma diferença aparece em como cada interface recebe **options** do solver (
 atributo — só aceita `options` como kwarg de `.solve()`. `apply_options()` (mesmo módulo) resolve
 isso com `hasattr(opt, "options")`, sem precisar saber o nome do solver.
 
+## Logging
+
+O framework loga via [loguru](https://loguru.readthedocs.io/) (`Model.build()`,
+`PyomoAdapter.solve()`, diagnóstico de infeasibilidade, cenários, relatórios em disco), mas o
+`logger` fica **desabilitado por padrão** — comportamento recomendado pela própria documentação
+do loguru para bibliotecas: quem decide sinks e formato é a aplicação que consome o framework,
+não o framework. Duas formas de ligar:
+
+```python
+from optframework.logging import configure_logging
+
+configure_logging()             # setup pronto: sink colorido no stderr, nível INFO
+configure_logging(level="DEBUG", sink="app.log")   # nível e sink custom
+```
+
+Ou, se o projeto já usa loguru para si:
+
+```python
+from loguru import logger
+
+logger.enable("optframework")   # os sinks já configurados pela aplicação passam a receber
+                                 # também os logs do framework
+```
+
 ## Exemplos
 
 Problemas de referência dentro do próprio repositório, além do knapsack do quickstart.
