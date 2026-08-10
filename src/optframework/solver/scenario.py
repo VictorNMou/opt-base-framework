@@ -5,6 +5,7 @@ import pyomo.environ as pyo
 
 from optframework.core.problem_data import ProblemData
 from optframework.core.yaml_component import YamlComponentBuilder
+from optframework.logging import logger
 from optframework.results.result import Result
 from optframework.solver.adapter import SolverAdapter
 
@@ -39,6 +40,7 @@ class ScenarioRunner:
 
     def run(self, scenarios: list[Scenario], profile: str = "default") -> dict[str, Result]:
         """Aplica cada cenário e resolve, devolvendo o Result por nome de cenário."""
+        logger.info("Rodando {} cenário(s): {}", len(scenarios), [s.name for s in scenarios])
         results: dict[str, Result] = {}
         for scenario in scenarios:
             self._apply(scenario)
@@ -106,6 +108,7 @@ class ScenarioLoop(YamlComponentBuilder):
             config = {}
 
         if not config.get("enabled", False):
+            logger.debug("model_scenarios.yaml ausente ou desabilitado, solve único.")
             return solver.solve(model, profile=config.get("profile", profile), data=data)
 
         scenarios = [self._parse_scenario(spec) for spec in self._require(config, "scenarios")]
