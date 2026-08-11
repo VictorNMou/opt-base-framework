@@ -23,7 +23,9 @@ def solve_dropping_unsupported_kwargs(
     # declarada. Não dá pra saber de antemão; a 1a chamada por solver_name aprende por
     # tentativa e erro (removendo uma chave rejeitada por vez) e cacheia pras próximas.
     known_unsupported = _unsupported_kwargs_by_solver.setdefault(solver_name, set())
-    active_kwargs = {key: value for key, value in kwargs.items() if key not in known_unsupported}
+    active_kwargs = {
+        key: value for key, value in kwargs.items() if key not in known_unsupported
+    }
     while True:
         try:
             return opt.solve(model, **active_kwargs)
@@ -35,7 +37,9 @@ def solve_dropping_unsupported_kwargs(
             del active_kwargs[rejected]
 
 
-def _extract_rejected_kwarg(exc: ValueError, active_kwargs: dict[str, object]) -> str | None:
+def _extract_rejected_kwarg(
+    exc: ValueError, active_kwargs: dict[str, object]
+) -> str | None:
     """Devolve o nome do kwarg rejeitado, ou None se o erro não for esse caso conhecido."""
     match = _UNSUPPORTED_KWARG_PATTERN.search(str(exc))
     if match is None:

@@ -60,6 +60,8 @@ def test_maximizar_valor_attaches_as_real_objective_via_framework() -> None:
     model.valor = pyo.Param(model.ITEMS, initialize={"A": 60, "B": 100, "C": 120})
     objectives = KnapsackObjectives(load_data())
 
-    model.maximizar_valor = pyo.Objective(rule=objectives.maximizar_valor, sense=pyo.maximize)
+    model.maximizar_valor = pyo.Objective(
+        rule=objectives.maximizar_valor, sense=pyo.maximize
+    )
 
     assert isinstance(model.maximizar_valor, pyo.Objective)

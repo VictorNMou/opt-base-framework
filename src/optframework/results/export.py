@@ -29,7 +29,9 @@ def result_to_dict(result: Result, solution: dict[str, Any]) -> dict[str, Any]:
     return _json_safe(data)
 
 
-def write_result_json(result: Result, solution: dict[str, Any], path: str | Path) -> Path:
+def write_result_json(
+    result: Result, solution: dict[str, Any], path: str | Path
+) -> Path:
     """Grava result_to_dict(...) como JSON (indent=2, UTF-8) em disco e devolve o Path."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)

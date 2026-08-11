@@ -62,7 +62,9 @@ def test_build_attaches_indexed_constraint_one_per_index(tmp_path: Path) -> None
     assert set(model.limite_individual.keys()) == {"p1", "p2"}
 
 
-def test_build_attaches_expressions_before_constraints_reference_them(tmp_path: Path) -> None:
+def test_build_attaches_expressions_before_constraints_reference_them(
+    tmp_path: Path,
+) -> None:
     _write_valid_config(tmp_path)
     (tmp_path / "model_expressions.yaml").write_text(
         "rules_class: tests.strategy.fixtures.FakeRules\n"

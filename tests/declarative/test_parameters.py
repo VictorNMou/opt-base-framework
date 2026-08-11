@@ -65,10 +65,7 @@ def test_attach_to_model_without_default_raises_on_missing_index_value(
         "sets:\n  PRODUTOS:\n    source: data.produtos\n"
     )
     (tmp_path / "model_parameters.yaml").write_text(
-        "parameters:\n"
-        "  desconto:\n"
-        "    index: [PRODUTOS]\n"
-        "    source: data.desconto\n"
+        "parameters:\n  desconto:\n    index: [PRODUTOS]\n    source: data.desconto\n"
     )
     data = SimpleNamespace(
         config_dir=str(tmp_path),

@@ -179,7 +179,7 @@ dev = [
  python_files = "test_*.py"
  python_functions = "test_*"
  minversion = "8.0"
- addopts = "--cov=src"
+ addopts = "--cov=src --cov-fail-under=99"
  testpaths = ["tests"]
  markers = ["feature_engineering: marks tests as feature engineering tests"]
 

@@ -17,7 +17,9 @@ class Parameters(YamlComponentBuilder):
         parameters = self._require(config, "parameters")
         for name, spec in parameters.items():
             values = self._resolve_source(self._require(spec, "source"), data)
-            index_sets = [getattr(model, index_name) for index_name in spec.get("index", [])]
+            index_sets = [
+                getattr(model, index_name) for index_name in spec.get("index", [])
+            ]
             mutable = spec.get("mutable", False)
             kwargs = {"initialize": values, "mutable": mutable}
             if "default" in spec:

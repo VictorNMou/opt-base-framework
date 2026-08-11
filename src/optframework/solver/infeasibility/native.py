@@ -36,7 +36,9 @@ class NativeIISAnalyzer:
         solver_key = normalize_solver_name(self.solver_name)
         Path(self.output_dir).mkdir(parents=True, exist_ok=True)
         suffix = f"_{self.label}" if self.label else ""
-        candidate = str(Path(self.output_dir) / f"infeasibility_iis_{solver_key}{suffix}")
+        candidate = str(
+            Path(self.output_dir) / f"infeasibility_iis_{solver_key}{suffix}"
+        )
 
         try:
             iis_file = write_iis(model, candidate, solver=solver_key)

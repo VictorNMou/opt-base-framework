@@ -88,7 +88,9 @@ class ElasticRelaxationAnalyzer:
             if equality:
                 slack_pos = model.infeasibility_slacks.add()
                 slack_neg = model.infeasibility_slacks.add()
-                model.infeasibility_constraints.add(body + slack_neg - slack_pos == lower)
+                model.infeasibility_constraints.add(
+                    body + slack_neg - slack_pos == lower
+                )
                 meta.append((name, index, "eq", slack_pos, slack_neg))
                 continue
             if lower is not None:
@@ -110,7 +112,9 @@ class ElasticRelaxationAnalyzer:
         """Filtra slacks acima da tolerância e ordena por magnitude decrescente."""
         violations = []
         for name, index, side, slack_pos, slack_neg in meta:
-            slack = pyo.value(slack_pos) + (pyo.value(slack_neg) if slack_neg is not None else 0.0)
+            slack = pyo.value(slack_pos) + (
+                pyo.value(slack_neg) if slack_neg is not None else 0.0
+            )
             if slack > self.tolerance:
                 violations.append(ConstraintViolation(name, index, side, slack))
         violations.sort(key=lambda v: v.slack, reverse=True)

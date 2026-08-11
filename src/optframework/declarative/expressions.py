@@ -22,8 +22,6 @@ class Expressions(YamlComponentBuilder):
         expressions = self._require(config, "expressions")
         for name, spec in expressions.items():
             spec = spec or {}
-            rule_fn = getattr(rules, name)
-            index_sets = [getattr(model, index_name) for index_name in spec.get("index", [])]
-            self._add_component(
-                model, name, pyo.Expression(*index_sets, rule=rule_fn), overwrite=overwrite
+            self._attach_indexed_rule(
+                model, name, spec, rules, pyo.Expression, overwrite=overwrite
             )

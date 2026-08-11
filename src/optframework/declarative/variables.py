@@ -24,7 +24,9 @@ class Variables(YamlComponentBuilder):
         config = self._load_config(self._config_path(data))
         variables = self._require(config, "variables")
         for name, spec in variables.items():
-            index_sets = [getattr(model, index_name) for index_name in spec.get("index", [])]
+            index_sets = [
+                getattr(model, index_name) for index_name in spec.get("index", [])
+            ]
             kwargs: dict[str, object] = {}
             if "within" in spec:
                 kwargs["within"] = getattr(model, spec["within"])
@@ -46,7 +48,9 @@ class Variables(YamlComponentBuilder):
         lower, upper = (self._resolve_bound_side(side, data) for side in bounds)
         if isinstance(lower, dict) or isinstance(upper, dict):
 
-            def bounds_rule(model: pyo.ConcreteModel, *idx: object) -> tuple[object, object]:
+            def bounds_rule(
+                model: pyo.ConcreteModel, *idx: object
+            ) -> tuple[object, object]:
                 key = idx[0] if len(idx) == 1 else idx
                 lo = lower[key] if isinstance(lower, dict) else lower
                 hi = upper[key] if isinstance(upper, dict) else upper

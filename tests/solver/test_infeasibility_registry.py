@@ -9,7 +9,9 @@ def test_gurobi_resolves_to_native_analyzer() -> None:
 
 
 def test_gurobi_persistent_resolves_to_native_analyzer() -> None:
-    assert get("gurobi_persistent", default=ElasticRelaxationAnalyzer) is NativeIISAnalyzer
+    assert (
+        get("gurobi_persistent", default=ElasticRelaxationAnalyzer) is NativeIISAnalyzer
+    )
 
 
 def test_cplex_resolves_to_native_analyzer() -> None:
@@ -21,7 +23,10 @@ def test_case_insensitive_lookup() -> None:
 
 
 def test_unregistered_solver_falls_back_to_default() -> None:
-    assert get("appsi_highs", default=ElasticRelaxationAnalyzer) is ElasticRelaxationAnalyzer
+    assert (
+        get("appsi_highs", default=ElasticRelaxationAnalyzer)
+        is ElasticRelaxationAnalyzer
+    )
     assert get("scip", default=ElasticRelaxationAnalyzer) is ElasticRelaxationAnalyzer
 
 
