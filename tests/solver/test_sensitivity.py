@@ -1,7 +1,9 @@
 import pyomo.environ as pyo
 import pytest
 
+from optframework.solver import sensitivity as sensitivity_module
 from optframework.solver.sensitivity import SensitivityAnalyzer
+from tests.solver.fixtures import CyIpoptLikeSolver
 
 
 def _analyzer(**kwargs) -> SensitivityAnalyzer:
@@ -112,3 +114,25 @@ def test_unresolved_fixed_solve_returns_resolved_false() -> None:
 
     assert report.resolved is False
     assert "não convergiu" in report.render()
+
+
+def test_analyze_survives_solver_without_options_attribute_and_strict_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Reproduz o solver_name="cyipopt" (PyomoCyIpoptSolver): sem `.options`, rejeita
+    # `symbolic_solver_labels` — antes do fix, `opt.options.update(...)` já crashava com
+    # AttributeError antes de sequer tentar resolver.
+    stub = CyIpoptLikeSolver()
+    monkeypatch.setattr(sensitivity_module.pyo, "SolverFactory", lambda _name: stub)
+    model = pyo.ConcreteModel()
+    model.b = pyo.Var(domain=pyo.Binary)
+    model.b.set_value(1)
+    model.x = pyo.Var(domain=pyo.NonNegativeReals)
+    model.c = pyo.Constraint(expr=model.x + model.b <= 10)
+    model.obj = pyo.Objective(expr=model.x, sense=pyo.minimize)
+
+    report = SensitivityAnalyzer(solver_name="cyipopt").analyze(model)
+
+    assert report.resolved is False
+    assert report.fixed_variable_count == 1
+    assert stub.calls[-1] == {"load_solutions": False, "options": {}}
