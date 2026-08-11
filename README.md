@@ -1,11 +1,73 @@
 # Opt Base Framework
 
-Framework Python para problemas de otimização via [Pyomo](https://www.pyomo.org/) — LP/MILP
-de origem, mas o núcleo nunca assume linearidade (nem `Rules`, nem diagnóstico de
-infeasibilidade, nem sensibilidade inspecionam a forma da expressão), então NLP funciona
-trocando apenas o `solver_name` (ver `exemplo_precificacao/`, com
-[ipopt](https://coin-or.github.io/Ipopt/)). Núcleo genérico *config-driven*, reaplicável para
-qualquer problema novo sem alterar o código do framework.
+[![PyPI version](https://img.shields.io/pypi/v/opt-base-framework.svg)](https://pypi.org/project/opt-base-framework/)
+[![Python versions](https://img.shields.io/pypi/pyversions/opt-base-framework.svg)](https://pypi.org/project/opt-base-framework/)
+[![CI](https://github.com/VictorNMou/opt-base-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/VictorNMou/opt-base-framework/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+A config-driven Python framework for optimization problems built on [Pyomo](https://www.pyomo.org/).
+LP/MILP by default, but the core never assumes linearity — neither `Rules`, infeasibility
+diagnostics, nor sensitivity analysis inspect the shape of an expression — so NLP works by
+swapping only the `solver_name` (see [`exemplo_precificacao/`](#nlp-example-pricing-with-own--and-cross-price-elasticity),
+solved with [ipopt](https://coin-or.github.io/Ipopt/)). Declare a new problem entirely in YAML +
+a thin `Rules` class, and reuse the same core, without ever touching framework code.
+
+## Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quickstart](#quickstart)
+- [Using the framework in another project](#using-the-framework-in-another-project)
+- [Architecture](#architecture)
+- [YAML configuration reference](#yaml-configuration-reference)
+- [Solve-time behavior](#solve-time-behavior)
+- [Logging](#logging)
+- [Examples](#examples)
+- [Integrating with external platforms](#integrating-with-external-platforms-eg-databricks)
+- [Creating a new problem](#creating-a-new-problem)
+- [Development](#development)
+- [License](#license)
+
+## Features
+
+- **Config-driven core.** Sets, Parameters, Variables, Expressions, Constraints, and the
+  Objective are declared in YAML; a problem contributes only a `data_loader.py` (data) and a
+  `Rules` class (the Pyomo math) — no framework code is ever touched.
+- **Not LP/MILP-only.** The same `build_model` → `solve` → `extract_solution` pipeline serves
+  LP, MILP, and NLP — nothing in the core assumes linearity. Switch to a nonlinear problem by
+  changing `solver_name`.
+- **Upfront config validation.** Every YAML file is checked before a single `pyo.Constraint` is
+  built — missing Sets, unknown `data` attributes, mismatched `rules_class` methods, all
+  reported together in one error, not one crash at a time.
+- **Solver-agnostic by design.** Ships with [HiGHS](https://highs.dev/) (`highspy`, no system
+  binary required) and supports Gurobi, CPLEX, `ipopt`, and `cyipopt` through the same adapter,
+  which auto-detects which kwargs each solver interface actually accepts.
+- **Automatic infeasibility diagnostics.** On an infeasible solve, the framework picks a
+  diagnostic strategy per solver — native IIS for Gurobi/CPLEX, elastic relaxation (Chinneck's
+  method) for HiGHS/SCIP/others — and reports ranked candidate causes.
+- **Sensitivity analysis, warm start, scenario loops.** Duals/reduced costs via fix-and-resolve,
+  warm-started multi-scenario sweeps, and always-on solve metrics (wall time, bounds, gap) — all
+  opt-in through config, at zero cost when unused.
+- **Scaffold CLI and `copier` template.** `optframework-new <name>` generates a new problem's
+  full layout; a `copier` template bootstraps an entire consumer project in one command.
+- **Opt-in structured logging.** Built on [loguru](https://loguru.readthedocs.io/), disabled by
+  default per library best practice — the consuming application decides sinks and format.
+
+## Installation
+
+```bash
+uv add opt-base-framework
+```
+
+or, with plain `pip`:
+
+```bash
+pip install opt-base-framework
+```
+
+Requires Python 3.12+. See [Using the framework in another project](#using-the-framework-in-another-project)
+for pinning a pre-release version straight from Git, and the [`copier` template](#full-project-bootstrap-the-copier-template)
+for bootstrapping a whole new project in one command.
 
 ## Quickstart
 
@@ -14,523 +76,533 @@ uv sync
 uv run python -m problems.exemplo_knapsack.run
 ```
 
-Saída esperada (instância clássica de knapsack 0/1 — pesos `[10, 20, 30]`, valores
-`[60, 100, 120]`, capacidade `50`):
+Expected output (classic 0/1 knapsack instance — weights `[10, 20, 30]`, values `[60, 100, 120]`,
+capacity `50`):
 
 ```
 Status: optimal
-Itens selecionados: ['B', 'C']
-Valor total: 220
+Itens selecionados: ['B', 'C']   # selected items
+Valor total: 220                 # total value
 ```
 
-## Usando o framework em outro projeto
+(The demo problem's own print labels are in Portuguese — only this README is translated; the
+values and behavior are what matter.)
 
-Este repositório é o núcleo (`src/optframework/`) — **não é um template para clonar**.
-`problems/` e `tests/` aqui dentro são apenas exemplos/fixtures de desenvolvimento do próprio
-framework; um projeto novo declara `opt-base-framework` como dependência e nunca altera `src/`:
+## Using the framework in another project
+
+This repository is the core (`src/optframework/`) — **not a template to clone**. `problems/`
+and `tests/` here are just examples/fixtures for developing the framework itself; a new project
+declares `opt-base-framework` as a dependency and never touches `src/`:
 
 ```bash
-uv init meu-projeto && cd meu-projeto
+uv init my-project && cd my-project
 uv add opt-base-framework
 ```
 
-A versão sobe rodando `uv lock --upgrade-package opt-base-framework` — sem nunca copiar `src/`.
-Isso vale tanto para um projeto novo quanto para incorporar o framework a um otimizador que já
-existe: a única diferença é se `problems/<nome>/` é a primeira pasta do projeto ou mais uma
-dentro de um projeto maior.
+Upgrading is `uv lock --upgrade-package opt-base-framework` — you never copy `src/`. This applies
+both to a brand-new project and to adding the framework to an optimizer that already exists: the
+only difference is whether `problems/<name>/` is the first folder in the project or one more
+inside a larger one.
 
-Para fixar em uma versão ainda não publicada no PyPI (ex.: testar uma branch), a instalação via
-Git continua funcionando:
+To pin a version not yet published on PyPI (e.g. testing a branch), installing straight from Git
+still works:
 
 ```bash
-uv add "opt-base-framework @ git+https://github.com/VictorNMou/opt-base-framework.git@v0.5.0"
+uv add "opt-base-framework @ git+https://github.com/VictorNMou/opt-base-framework.git@v0.6.1"
 ```
 
-Para gerar a estrutura de um problema novo (`config/` + `data_loader.py` + `rules.py` +
-`run.py`), use o `optframework-new` — instalado junto com a dependência, entry point de
+To generate the structure for a new problem (`config/` + `data_loader.py` + `rules.py` +
+`run.py`), use `optframework-new` — installed alongside the dependency, an entry point from
 `src/optframework/scaffold/`:
 
 ```bash
-uv run optframework-new roteirizacao_frota
-uv run python -m problems.roteirizacao_frota.run   # já roda: placeholder minimize sum(x)
+uv run optframework-new fleet_routing
+uv run python -m problems.fleet_routing.run   # already runs: placeholder minimize sum(x)
 ```
 
-`--dest` muda a pasta raiz (default `problems`, precisa ser relativa — vira prefixo do import
-Python) e `--force` sobrescreve um `problems/<nome>/` já existente. O scaffold gerado é
-propositalmente mínimo (um Set, uma Variable, um Objective trivial), apenas para comprovar que a
-dependência e o import funcionam de ponta a ponta — o conteúdo real do problema (Sets reais,
-Constraints, `data_loader.py` de verdade) é escrito por cima do scaffold, seguindo a seção
-"Como criar um problema novo" abaixo.
+`--dest` changes the root folder (default `problems`, must be relative — becomes the Python
+import prefix) and `--force` overwrites an existing `problems/<name>/`. The generated scaffold is
+deliberately minimal (one Set, one Variable, one trivial Objective), just enough to prove the
+dependency and the import work end to end — the real content of the problem (real Sets,
+Constraints, a real `data_loader.py`) is written on top of the scaffold, following
+[Creating a new problem](#creating-a-new-problem) below.
 
-### Bootstrap completo de projeto novo: template `copier`
+### Full project bootstrap: the `copier` template
 
-O fluxo acima (`uv init` + `uv add` + `optframework-new`) cobre tanto projeto novo quanto
-incorporar o framework a um otimizador que já existe. Para projeto novo especificamente, um
-[template `copier`](https://copier.readthedocs.io/) em `copier.yml`/`template/` (neste mesmo
-repositório — não é um repositório separado para manter sincronizado) executa os três passos de
-uma vez, já com a dependência fixada na versão certa:
+The flow above (`uv init` + `uv add` + `optframework-new`) covers both a brand-new project and
+adding the framework to an existing optimizer. For a brand-new project specifically, a
+[`copier` template](https://copier.readthedocs.io/) living in `copier.yml`/`template/` (in this
+same repository — not a separate repo to keep in sync) runs all three steps at once, already
+pinned to the right version:
 
 ```bash
-uvx copier copy --trust gh:VictorNMou/opt-base-framework --vcs-ref v0.5.0 meu-projeto
+uvx copier copy --trust gh:VictorNMou/opt-base-framework --vcs-ref v0.6.1 my-project
 ```
 
-`--trust` é obrigatório porque o template executa `_tasks` (`uv sync` +
-`uv run optframework-new`) depois de gerar os arquivos — use `--trust` apenas em templates
-confiáveis, já que a flag executa shell de fato. O template pergunta `project_name`,
-`description` (opcional), `problem_name` (opcional — Enter pula essa etapa, permitindo rodar
-`optframework-new` manualmente depois) e `framework_ref` (a versão a fixar no `pyproject.toml`
-gerado; default é a própria `--vcs-ref` usada acima). Se `framework_ref` for uma tag `vX.Y.Z`, a
-dependência gerada aponta pro PyPI (`opt-base-framework==X.Y.Z`); qualquer outro valor (branch,
-hash) vira dependência Git fixada nessa ref — útil pra testar o template a partir de uma branch
-antes de uma tag existir. Gera `pyproject.toml`, `.gitignore`, `README.md` e, se `problem_name`
-foi respondido, `problems/<nome>/` completo — tudo isso executando `optframework-new`
-internamente, sem duplicar a lógica de scaffold.
+`--trust` is required because the template runs `_tasks` (`uv sync` + `uv run optframework-new`)
+after generating the files — only use `--trust` on templates you trust, since the flag does run
+shell commands. The template asks for `project_name`, `description` (optional), `problem_name`
+(optional — Enter skips this step, letting you run `optframework-new` manually later), and
+`framework_ref` (the version to pin in the generated `pyproject.toml`; defaults to the `--vcs-ref`
+used above). If `framework_ref` is a semver tag (`vX.Y.Z`), the generated dependency points at
+PyPI (`opt-base-framework==X.Y.Z`); any other value (branch, hash) becomes a Git-pinned dependency
+on that ref — useful for testing the template from a branch before a tag exists. It generates
+`pyproject.toml`, `.gitignore`, `README.md`, and, if `problem_name` was answered,
+`problems/<name>/` in full — all of it by running `optframework-new` internally, without
+duplicating the scaffold logic.
 
-Por ser um template `copier` (não `cookiecutter`), gravar `.copier-answers.yml` no projeto
-gerado habilita `copier update` posteriormente — reaplica mudanças futuras do template
-(`copier.yml`/`template/` neste repositório) num projeto já criado, o que `cookiecutter` não faz.
+Being a `copier` template (not `cookiecutter`), it writes `.copier-answers.yml` into the
+generated project, which enables `copier update` later — reapplying future changes to the
+template (`copier.yml`/`template/` in this repository) onto an already-generated project, which
+`cookiecutter` doesn't support.
 
-## Arquitetura
+## Architecture
 
-O núcleo (`src/optframework/`) monta o modelo em camadas, cada uma lendo sua própria
-configuração YAML do problema:
+The core (`src/optframework/`) assembles the model in layers, each reading its own YAML config
+for the problem:
 
-| Camada | O que é | Onde mora a lógica |
+| Layer | What it is | Where the logic lives |
 |---|---|---|
-| Validação de config | Checa os 5 YAMLs obrigatórios do problema (+ `model_expressions.yaml`, se existir) antes de montar qualquer `pyo.Constraint` | Automática, sempre ligada, roda no início de `Model.build()`; agrega **todos** os problemas encontrados num único `ConfigValidationError` em vez de falhar um de cada vez; `core/validation.py` |
-| `Sets`/`Parameters`/`Variables` | Metadados puros (índices, domínio, fonte de dado) | 100% YAML — sem código Python por problema; Parameters aceitam `default` opcional, Variables/Parameters aceitam `within`, Variables aceitam `bounds` (ver "Referência de configuração YAML" abaixo) |
-| `Expressions` | Fórmulas Pyomo reutilizáveis por várias constraints/objective | Opcional (`model_expressions.yaml`, ver seção abaixo); mesmo padrão de `Rules`/`index` de Constraints, sem `enabled` |
-| `Constraints`/`Objective` | Matemática Pyomo (expressões) | Uma classe `Rules` por problema, um **método nomeado** por constraint/objective; constraints aceitam `index` e `enabled` dinâmico opcionais (ver seções abaixo) |
-| `Solver` | Resolve via `pyo.SolverFactory` | Perfis (`default`/`optimal`/`faster_not_optimal`) em `model_solver.yaml` de nível framework, usando [HiGHS](https://highs.dev/) (`highspy`, sem binário de sistema); um `model_solver.yaml` opcional em `problems/<nome>/config/` faz *deep merge* por cima (só as chaves declaradas sobrescrevem, recursivamente); `solve_compat.py` descobre e cacheia, por `solver_name`, quais kwargs cada interface aceita |
-| `ScenarioLoop` | Resolve a mesma instância várias vezes, mutando parâmetros/ativações | Opcional, config-driven (`model_scenarios.yaml`); `warm_start: true` reaproveita a solução do cenário anterior no próximo solve |
-| `Reporter` | Snapshots de texto do modelo (`pprint` antes / `display` depois) | Opcional, ligado por config (`report.enabled`) |
-| Diagnóstico de infeasibilidade | Aponta candidatas a causa quando o solve dá infeasible | Automático (`infeasibility.enabled`, default `true`); analisador escolhido por `solver/infeasibility/registry.py` — ponto de extensão análogo ao de `MilpStrategy` |
-| Sensibilidade | Duais/custos reduzidos via fix-and-resolve | Opcional, config-driven (`sensitivity.enabled`, default `false` — custa um resolve extra); `solver/sensitivity.py` |
-| Métricas do solve | Tempo de parede, bounds, gap | Automático (sempre populado, custo zero); anexado a `result.metrics` |
-| Export JSON | `Result` + solução → dict/JSON plano | Chamada explícita (`results/export.py`), não automática — ponto de integração com camadas de workflow externas |
-| `MilpStrategy` | `build_model` → `solve` → `extract_solution` | Registrada em `strategy/registry.py` sob `optimization_type="milp"`, `"lp"` **e** `"nlp"` — a classe não assume linearidade em nenhum passo, então o mesmo `build_model`/`solve`/`extract_solution` serve para NLP apenas trocando `solver_name`; ponto de extensão para CP/metaheurísticas futuras |
+| Config validation | Checks the 5 required problem YAMLs (+ `model_expressions.yaml`, if present) before any `pyo.Constraint` is built | Automatic, always on, runs at the start of `Model.build()`; aggregates **all** problems found into a single `ConfigValidationError` instead of failing one at a time; `core/validation.py` |
+| `Sets`/`Parameters`/`Variables` | Pure metadata (indices, domain, data source) | 100% YAML — no per-problem Python code; Parameters accept an optional `default`, Variables/Parameters accept `within`, Variables accept `bounds` (see [YAML configuration reference](#yaml-configuration-reference) below) |
+| `Expressions` | Reusable Pyomo formulas shared by several constraints/objective | Optional (`model_expressions.yaml`, see below); same `Rules`/`index` pattern as Constraints, without `enabled` |
+| `Constraints`/`Objective` | Pyomo math (expressions) | One `Rules` class per problem, one **named method** per constraint/objective; constraints accept optional `index` and dynamic `enabled` (see sections below) |
+| `Solver` | Solves via `pyo.SolverFactory` | Framework-level profiles (`default`/`optimal`/`faster_not_optimal`) in `model_solver.yaml`, using [HiGHS](https://highs.dev/) (`highspy`, no system binary); an optional `model_solver.yaml` in `problems/<name>/config/` deep-merges on top (only declared keys override, recursively); `solve_compat.py` discovers and caches, per `solver_name`, which kwargs each interface accepts |
+| `ScenarioLoop` | Solves the same instance repeatedly, mutating parameters/activations | Optional, config-driven (`model_scenarios.yaml`); `warm_start: true` reuses the previous scenario's solution as the starting point for the next solve |
+| `Reporter` | Text snapshots of the model (`pprint` before / `display` after) | Optional, toggled by config (`report.enabled`) |
+| Infeasibility diagnostics | Points to candidate causes when a solve comes back infeasible | Automatic (`infeasibility.enabled`, default `true`); analyzer chosen by `solver/infeasibility/registry.py` — an extension point analogous to `MilpStrategy`'s |
+| Sensitivity | Duals/reduced costs via fix-and-resolve | Optional, config-driven (`sensitivity.enabled`, default `false` — costs an extra resolve); `solver/sensitivity.py` |
+| Solve metrics | Wall time, bounds, gap | Automatic (always populated, zero cost); attached to `result.metrics` |
+| JSON export | `Result` + solution → flat dict/JSON | Explicit call (`results/export.py`), not automatic — an integration point for external workflow layers |
+| `MilpStrategy` | `build_model` → `solve` → `extract_solution` | Registered in `strategy/registry.py` under `optimization_type="milp"`, `"lp"`, **and** `"nlp"` — the class never assumes linearity at any step, so the same `build_model`/`solve`/`extract_solution` also serves NLP, just by swapping `solver_name`; extension point for future CP/metaheuristic strategies |
 
-`Model.build()` (`core/model.py`) monta tudo na ordem
+`Model.build()` (`core/model.py`) assembles everything in order:
 `sets → parameters → variables → expressions → constraints → objective`.
 
-## Referência de configuração YAML
+## YAML configuration reference
 
-Como declarar cada camada do modelo via YAML — na mesma ordem em que `Model.build()` monta o
-modelo (`sets → parameters → variables → expressions → constraints → objective`), fechando com a
-validação que confere tudo isso de uma vez antes do primeiro `pyo.Constraint` ser montado.
+<details>
+<summary>How to declare each model layer via YAML — expand for defaults, bounds/within,
+reusable expressions, indexed constraints, dynamic enabling, and config validation.</summary>
 
-### Parameters com valor default
+The subsections below follow the same order `Model.build()` assembles the model in
+(`sets → parameters → variables → expressions → constraints → objective`), closing with the
+validation that checks all of it at once, before the first `pyo.Constraint` is built.
 
-Um Parameter em `model_parameters.yaml` pode declarar `default`, repassado diretamente para
-`pyo.Param(default=...)` — o valor usado quando o índice não aparece em `source`. Sem isso,
-`source` precisa cobrir **todos** os elementos do `index` (Pyomo é "denso" por padrão: acessar um
-índice ausente levanta `ValueError`); com `default`, `source` pode ser esparso (só os elementos
-que fogem do padrão), e os elementos restantes ficam cobertos pelo valor default:
+### Parameters with a default value
+
+A Parameter in `model_parameters.yaml` can declare `default`, passed straight to
+`pyo.Param(default=...)` — the value used when an index is missing from `source`. Without it,
+`source` must cover **every** element of `index` (Pyomo is "dense" by default: accessing a
+missing index raises `ValueError`); with `default`, `source` can be sparse (just the elements
+that deviate from the norm), and the rest fall back to the default value:
 
 ```yaml
 parameters:
-  desconto:
-    index: [PRODUTOS]
-    source: data.desconto      # dict parcial: só produtos com desconto != 0
+  discount:
+    index: [PRODUCTS]
+    source: data.discount      # partial dict: only products with a non-zero discount
     default: 0.0
 ```
 
-Sem `default`, comportamento inalterado — nenhuma config existente precisa mudar. `default: 0` é
-diferente de omitir a chave: omitida, o índice ausente levanta erro ao ser acessado (falha cedo,
-sinaliza a ausência do dado); com `default: 0` declarado, o índice ausente vira `0`
-silenciosamente. A escolha de declará-lo ou não cabe ao problema, não ao framework.
+Without `default`, behavior is unchanged — no existing config needs to change. `default: 0` is
+different from omitting the key: omitted, a missing index raises an error when accessed (fails
+fast, flags missing data); with `default: 0` declared, a missing index silently becomes `0`.
+Whether to declare it is up to the problem, not the framework.
 
-### Bounds e within em Variables e Parameters
+### Bounds and `within` on Variables and Parameters
 
-Além de `domain`, uma Variable em `model_variables.yaml` pode declarar `bounds` e/ou `within`:
+Besides `domain`, a Variable in `model_variables.yaml` can declare `bounds` and/or `within`:
 
 ```yaml
 variables:
-  producao:
-    index: [PRODUTOS]
+  production:
+    index: [PRODUCTS]
     domain: NonNegativeReals
-    bounds: [0, data.capacidade_max]   # lower/upper: número literal, null ou data.<atributo>
+    bounds: [0, data.max_capacity]   # lower/upper: a literal number, null, or data.<attribute>
 
-  escolha:
-    index: [PRODUTOS]
-    within: PRODUTOS_VALIDOS           # em vez de domain: restringe a um Set já declarado
+  selection:
+    index: [PRODUCTS]
+    within: VALID_PRODUCTS           # instead of domain: restrict to an already-declared Set
 ```
 
-`bounds` é `[lower, upper]`, repassado para `pyo.Var(bounds=...)`. Cada lado aceita um número
-fixo (mesmo valor para todo índice), `null` (sem limite naquele lado) ou `data.<atributo>`
-resolvido por índice (mesmo mecanismo `source` de Parameters) — quando pelo menos um lado vem de
-`data`, o framework monta uma bounds rule internamente; se os dois lados são literais, resulta na
-tupla `(lower, upper)` diretamente, sem o custo de uma rule.
+`bounds` is `[lower, upper]`, passed to `pyo.Var(bounds=...)`. Each side accepts a fixed number
+(same value for every index), `null` (unbounded on that side), or `data.<attribute>` resolved
+per index (the same `source` mechanism used by Parameters) — when at least one side comes from
+`data`, the framework builds a bounds rule internally; when both sides are literals, it resolves
+directly to the `(lower, upper)` tuple, with no rule overhead.
 
-`within` é o nome real do parâmetro do Pyomo (`domain` é apenas um alias mais recente) — aqui ele
-serve para restringir a Variable a um Set customizado já declarado em `model_sets.yaml`, em vez
-de um dos domínios embutidos. Isso ajuda a detectar erros de indexação cedo: um valor fora do Set
-gera um erro do Pyomo imediatamente, em vez de passar despercebido. Por serem aliases do mesmo
-argumento, `domain` e `within` são mutuamente exclusivos na mesma Variable — declarar os dois é
-erro de config.
+`within` is Pyomo's real parameter name (`domain` is just a newer alias) — here it restricts a
+Variable to a custom Set already declared in `model_sets.yaml`, instead of one of the built-in
+domains. This helps catch indexing errors early: a value outside the Set raises a Pyomo error
+immediately, instead of going unnoticed. Since they're aliases of the same argument, `domain` and
+`within` are mutually exclusive on the same Variable — declaring both is a config error.
 
-Parameters também aceitam `within` (mesmo Set customizado, mesmo motivo), mas não têm `domain` —
-só Variables têm domínio embutido por padrão.
+Parameters also accept `within` (same custom Set, same reason), but have no `domain` — only
+Variables have a built-in domain by default.
 
-### Expressions reutilizáveis
+### Reusable expressions
 
-`model_expressions.yaml` é **opcional** — problemas sem fórmula reutilizável não precisam do
-arquivo. Quando existe, segue o mesmo padrão de `model_constraints.yaml` (`rules_class` próprio +
-`index` opcional), mas sem `enabled`: uma expression não tem liga/desliga, é apenas uma fórmula
-que vira um `pyo.Expression` nomeado, referenciável por qualquer constraint/objective declarada
-depois dela:
+`model_expressions.yaml` is **optional** — problems with no reusable formula don't need the
+file. When present, it follows the same pattern as `model_constraints.yaml` (its own
+`rules_class` + optional `index`), but without `enabled`: an expression has no on/off switch, it
+is just a formula that becomes a named `pyo.Expression`, referenceable by any constraint/objective
+declared after it:
 
 ```yaml
-rules_class: problems.<nome>.rules.<Nome>Rules
+rules_class: problems.<name>.rules.<Name>Rules
 expressions:
   volume:
-    index: [PRODUTOS]
+    index: [PRODUCTS]
 ```
 
 ```python
-def volume(self, model: pyo.ConcreteModel, produto: str) -> object:
-    return model.producao[produto] * model.densidade[produto]
+def volume(self, model: pyo.ConcreteModel, product: str) -> object:
+    return model.production[product] * model.density[product]
 ```
 
-Constraints e o objective podem então referenciar `model.volume[produto]` em vez de repetir a
-fórmula em cada método — útil quando várias constraints (ou constraint + objective) dependem da
-mesma expressão intermediária. `Model.build()` anexa `Expressions` **antes** de `Constraints`/
-`Objective`, para garantir que `model.volume` já exista quando as rules dessas camadas forem
-executadas. `index` referenciando um Set não declarado é identificado pela validação de config,
-mesma checagem já aplicada a `Variables`/`Parameters`/Constraints.
+Constraints and the objective can then reference `model.volume[product]` instead of repeating the
+formula in each method — useful when several constraints (or a constraint + the objective) depend
+on the same intermediate expression. `Model.build()` attaches `Expressions` **before**
+`Constraints`/`Objective`, guaranteeing `model.volume` already exists by the time those layers'
+rules run. An `index` referencing a Set that isn't declared is caught by config validation, the
+same check already applied to `Variables`/`Parameters`/Constraints.
 
-### Constraints indexadas
+### Indexed constraints
 
-Uma família de constraint em `model_constraints.yaml` pode declarar `index`, à semelhança de
-`Variables`/`Parameters`, para se tornar uma `pyo.Constraint` indexada em vez de escalar — uma
-instância por combinação dos Sets listados:
+A constraint family in `model_constraints.yaml` can declare `index`, just like
+`Variables`/`Parameters`, to become an indexed `pyo.Constraint` instead of a scalar one — one
+instance per combination of the listed Sets:
 
 ```yaml
 constraints:
-  limite_por_produto:
-    index: [PRODUTOS]
+  per_product_limit:
+    index: [PRODUCTS]
 ```
 
-O método correspondente na `Rules` recebe `model` mais um argumento por Set do `index`, na mesma
-ordem (padrão de `rule` indexada do próprio Pyomo):
+The corresponding method in `Rules` receives `model` plus one argument per Set in `index`, in the
+same order (Pyomo's own indexed-rule convention):
 
 ```python
-def limite_por_produto(self, model: pyo.ConcreteModel, produto: str) -> bool:
-    return model.producao[produto] <= model.capacidade_max[produto]
+def per_product_limit(self, model: pyo.ConcreteModel, product: str) -> bool:
+    return model.production[product] <= model.max_capacity[product]
 ```
 
-Sem `index` (ou `index: []`), a constraint continua escalar como antes — nenhuma config existente
-precisa mudar. `index` referenciando um Set não declarado em `model_sets.yaml` é identificado
-pela validação de config (mesma checagem já aplicada a `Variables`/`Parameters`).
+Without `index` (or `index: []`), the constraint stays scalar as before — no existing config
+needs to change. An `index` referencing a Set not declared in `model_sets.yaml` is caught by
+config validation (the same check already applied to `Variables`/`Parameters`).
 
-### Constraints habilitadas dinamicamente
+### Dynamically enabled constraints
 
-`enabled` em `model_constraints.yaml` aceita um bool estático (como já era) ou uma string
-`data.<atributo>`, resolvida em `data` no momento do build — igual ao `source` de
-Sets/Parameters. Útil quando a família de constraint só faz sentido para uma parte das instâncias
-do problema (ex.: uma constraint por grupo de preço que só existe se o lote tiver mais de um item
-comparável):
+`enabled` in `model_constraints.yaml` accepts either a static bool (as before) or a
+`data.<attribute>` string, resolved against `data` at build time — the same mechanism as
+`source` for Sets/Parameters. Useful when a constraint family only makes sense for some problem
+instances (e.g. a price-group coherence constraint that only exists if a batch has more than one
+comparable item):
 
 ```yaml
 constraints:
-  coerencia_grupo_preco:
-    enabled: data.coerencia_grupo_preco_habilitada
+  price_group_coherence:
+    enabled: data.price_group_coherence_enabled
 ```
 
-`ProblemData` expõe esse atributo como um `bool` já calculado (tipicamente por um
-`ConstraintsPreprocessor`, a partir dos dados do lote) — o framework apenas resolve `getattr`,
-sem decidir a regra de negócio por trás do flag. Com `enabled` dinâmico, a validação de config não
-tem como saber de antemão se a constraint estará ativa, então **sempre** confere que o método
-existe na `Rules` (diferente de `enabled: false` estático, que pula essa checagem — já que o
-método nunca será executado). `enabled` apontando para um atributo inexistente em `data` é
-identificado pela validação de config, com a mesma mensagem já usada para `source` de
-Sets/Parameters.
+`ProblemData` exposes that attribute as an already-computed `bool` (typically produced by a
+`ConstraintsPreprocessor`, from the batch's own data) — the framework just resolves `getattr`,
+without deciding the business rule behind the flag. With a dynamic `enabled`, config validation
+has no way of knowing upfront whether the constraint will be active, so it **always** checks that
+the method exists on `Rules` (unlike a static `enabled: false`, which skips that check — since
+the method will never run). An `enabled` pointing at a nonexistent `data` attribute is caught by
+config validation, with the same message already used for `source` on Sets/Parameters.
 
-### Validação de config
+### Config validation
 
-Antes de montar qualquer componente Pyomo, `Model.build()` chama
-`validate_problem_config(data)` (`core/validation.py`), que lê os 5 YAMLs obrigatórios do
-problema (`model_sets`/`model_parameters`/`model_variables`/`model_constraints`/
-`model_objective`) — mais `model_expressions.yaml`, se ele existir — e confere:
+Before building any Pyomo component, `Model.build()` calls `validate_problem_config(data)`
+(`core/validation.py`), which reads the 5 required problem YAMLs
+(`model_sets`/`model_parameters`/`model_variables`/`model_constraints`/`model_objective`) — plus
+`model_expressions.yaml`, if it exists — and checks:
 
-- `source: data.<atributo>` em Sets/Parameters — prefixo correto e atributo existente em `data`.
-- `index` em Parameters/Variables/Expressions/Constraints — referencia um Set de fato declarado
-  em `model_sets.yaml`.
-- `domain` em Variables — um dos domínios conhecidos (`Reals`, `NonNegativeReals`, `Integers`,
-  `NonNegativeIntegers`, `Binary`), quando `within` não é usado (os dois juntos são erro).
-- `within` em Variables/Parameters — referencia um Set de fato declarado em `model_sets.yaml`.
-- `bounds` em Variables — lista de exatamente 2 elementos, cada um número, `null` ou
-  `data.<atributo>` existente em `data`.
-- `rules_class` em Expressions/Constraints/Objective — importável, e cada expression/
-  constraint/objective habilitada tem um método correspondente na classe.
-- `default`/`sense` em Objective — `default` aponta para um objective declarado, `sense` é
-  `minimize` ou `maximize`.
+- `source: data.<attribute>` on Sets/Parameters — correct prefix and the attribute actually
+  exists on `data`.
+- `index` on Parameters/Variables/Expressions/Constraints — actually references a Set declared in
+  `model_sets.yaml`.
+- `domain` on Variables — one of the known domains (`Reals`, `NonNegativeReals`, `Integers`,
+  `NonNegativeIntegers`, `Binary`), when `within` isn't used (both together is an error).
+- `within` on Variables/Parameters — actually references a Set declared in `model_sets.yaml`.
+- `bounds` on Variables — a list of exactly 2 elements, each a number, `null`, or an existing
+  `data.<attribute>`.
+- `rules_class` on Expressions/Constraints/Objective — importable, and every enabled
+  expression/constraint/objective has a matching method on the class.
+- `default`/`sense` on Objective — `default` points at a declared objective, `sense` is
+  `minimize` or `maximize`.
 
-Sem essa validação, cada um desses erros só se manifestava internamente no Pyomo, como
-`AttributeError`/`KeyError`, sem indicar qual arquivo ou campo era a origem do problema — e um de
-cada vez, exigindo várias rodadas de tentativa e erro. A validação roda de uma vez, agrega
-**todos** os problemas encontrados nos arquivos presentes e levanta um único
-`ConfigValidationError` com a lista completa. Constraints desabilitadas (`enabled: false`
-estático) são ignoradas, já que nunca chegam a rodar — expressions não têm esse conceito, então
-toda expression declarada tem seu método sempre validado.
+Without this validation, each of these errors only surfaced deep inside Pyomo, as an
+`AttributeError`/`KeyError`, without pointing at which file or field caused it — and one at a
+time, requiring several rounds of trial and error. Validation runs once, aggregates **all**
+problems found across the present files, and raises a single `ConfigValidationError` with the
+full list. Disabled constraints (static `enabled: false`) are skipped, since they never run —
+expressions have no such concept, so every declared expression always has its method validated.
 
-## Comportamento em tempo de solve
+</details>
 
-O que acontece a partir de `PyomoAdapter.solve()` — diagnóstico de infeasibilidade,
-sensibilidade/métricas do resultado, warm start entre cenários e compatibilidade de kwargs entre
-interfaces de solver diferentes.
+## Solve-time behavior
 
-### Diagnóstico de infeasibilidade
+<details>
+<summary>What happens from <code>PyomoAdapter.solve()</code> onward — infeasibility diagnostics,
+sensitivity/result metrics, warm start across scenarios, and kwarg compatibility across different
+solver interfaces.</summary>
 
-Quando `PyomoAdapter.solve()` recebe um `termination_condition` infeasible, ele dispara
-automaticamente um analisador de infeasibilidade e anexa o resultado a `result.infeasibility`
-(controlado por `infeasibility.enabled` em `model_solver.yaml`, ligado por padrão). Como
-`result.values` vira `{}` nesse caso, quem consome o resultado deve checar
-`result.is_infeasible` antes de indexar `values`.
+### Infeasibility diagnostics
 
-Toda config de `model_solver.yaml` (perfis, `report`, `infeasibility`, `sensitivity`) segue a
-mesma regra de precedência: se `problems/<nome>/config/model_solver.yaml` existir, suas chaves
-sobrescrevem as do default do framework recursivamente — o que o problema não declarar continua
-herdando do default. `MilpStrategy.solve(model, data)` passa `data` adiante para `PyomoAdapter`
-fazer esse merge; por isso `solve()` agora exige `data`, não apenas `model`.
+When `PyomoAdapter.solve()` gets back an infeasible `termination_condition`, it automatically
+triggers an infeasibility analyzer and attaches the result to `result.infeasibility` (controlled
+by `infeasibility.enabled` in `model_solver.yaml`, on by default). Since `result.values` becomes
+`{}` in that case, callers must check `result.is_infeasible` before indexing into `values`.
 
-O analisador é escolhido automaticamente pelo `solver_name` do profile ativo, via
-`solver/infeasibility/registry.py` (mesmo padrão de extensão de `strategy/registry.py`):
+Every `model_solver.yaml` config (profiles, `report`, `infeasibility`, `sensitivity`) follows the
+same precedence rule: if `problems/<name>/config/model_solver.yaml` exists, its keys override the
+framework defaults recursively — anything the problem doesn't declare keeps inheriting from the
+default. `MilpStrategy.solve(model, data)` passes `data` on to `PyomoAdapter` to do that merge —
+which is why `solve()` now requires `data`, not just `model`.
 
-| Solver | Diagnóstico | Como |
+The analyzer is chosen automatically from the active profile's `solver_name`, via
+`solver/infeasibility/registry.py` (the same extension pattern as `strategy/registry.py`):
+
+| Solver | Diagnostic | How |
 |---|---|---|
-| Gurobi | IIS nativo (`Model.computeIIS()`) | `pyomo.contrib.iis.write_iis`, grava `.ilp`; extra opcional `uv pip install .[gurobi]` |
-| CPLEX | Conflict refiner nativo | `pyomo.contrib.iis.write_iis`, grava `.lp`; extra opcional `uv pip install .[cplex]` |
-| HiGHS, SCIP, outros | Relaxamento elástico (Chinneck) | Injeta slack em toda constraint ativa e minimiza o total — candidatas ordenadas por magnitude de slack em `result.infeasibility.violations` |
+| Gurobi | Native IIS (`Model.computeIIS()`) | `pyomo.contrib.iis.write_iis`, writes an `.ilp`; optional extra `uv pip install .[gurobi]` |
+| CPLEX | Native conflict refiner | `pyomo.contrib.iis.write_iis`, writes an `.lp`; optional extra `uv pip install .[cplex]` |
+| HiGHS, SCIP, others | Elastic relaxation (Chinneck's method) | Injects slack into every active constraint and minimizes the total — candidates ranked by slack magnitude in `result.infeasibility.violations` |
 
-SCIP hoje **não** tem IIS nativo exposto em Python — o core do SCIP 10 ganhou
-`SCIPgenerateIIS()`, mas o PySCIPOpt ainda não expõe essa funcionalidade via wrapper Python
-([gap aberto](https://github.com/scipopt/PySCIPOpt/discussions/854)), por isso usa o relaxamento
-elástico, como o HiGHS.
+SCIP currently has **no** native IIS exposed in Python — SCIP 10's core gained
+`SCIPgenerateIIS()`, but PySCIPOpt doesn't yet expose that through its Python wrapper (an
+[open gap](https://github.com/scipopt/PySCIPOpt/discussions/854)), so it falls back to elastic
+relaxation, same as HiGHS.
 
-`result.infeasibility.suspected_bound_conflict=True` sinaliza que o relaxamento elástico não
-resolveu mesmo com slack ilimitado — a causa provável é bound/domínio de variável ou `fix()`, não
-uma constraint geral (o relaxamento só toca constraints, nunca bounds). Extensões fora do escopo
-atual: converter o `.ilp`/`.lp` nativo de volta em nomes estruturados, e IIS mínimo via deleção
-iterativa de constraints (o relaxamento elástico reporta candidatas, não a causa única).
+`result.infeasibility.suspected_bound_conflict=True` flags that elastic relaxation didn't resolve
+the problem even with unlimited slack — the likely cause is a variable bound/domain or a `fix()`,
+not a general constraint (relaxation only touches constraints, never bounds). Out of scope today:
+converting the native `.ilp`/`.lp` back into structured names, and a minimal IIS via iterative
+constraint deletion (elastic relaxation reports candidates, not the single root cause).
 
-### Sensibilidade e métricas do solve
+### Sensitivity and solve metrics
 
-`result.sensitivity` (quando `sensitivity.enabled: true` em `model_solver.yaml` — desligado por
-padrão, custa um resolve extra) funciona fixando toda variável binária/inteira no seu valor
-resolvido (trocando o domínio para contínuo antes de fixar — só `.fix()` não basta, o HiGHS via
-Pyomo recusa duais em qualquer modelo com variável discreta) e reotimizando com Suffixes
-`dual`/`rc`. É útil para MILPs com componente contínua real; **para problemas 100% binários
-(knapsack, atribuição), os duais tendem a zerar** — depois que toda variável vira constante fixa,
-não sobra margem contínua para precificar a constraint. Isso é esperado, não um bug. `rc` (custo
-reduzido) pode vir `None` dependendo do solver (confirmado sempre `None` em `appsi_highs`/HiGHS)
-— deve ser tratado como "não disponível", nunca como erro.
+`result.sensitivity` (when `sensitivity.enabled: true` in `model_solver.yaml` — off by default,
+costs an extra resolve) works by fixing every binary/integer variable at its solved value
+(switching the domain to continuous before fixing — `.fix()` alone isn't enough, HiGHS via Pyomo
+refuses duals on any model with a discrete variable) and re-optimizing with `dual`/`rc` Suffixes.
+It's useful for MILPs with a real continuous component; **for fully binary problems (knapsack,
+assignment), duals tend to come back zero** — once every variable becomes a fixed constant, there
+is no continuous slack left to price the constraint against. That's expected, not a bug. `rc`
+(reduced cost) can come back `None` depending on the solver (confirmed always `None` on
+`appsi_highs`/HiGHS) — treat that as "not available," never as an error.
 
-`result.metrics` é sempre populado (tempo de parede medido em Python, `lower_bound`/
-`upper_bound`/`gap` do schema padrão do Pyomo — `None` quando o solver não os populou, ex. em
-infeasible). `gap` é magnitude pura, não um gap assinado por sentido de otimização.
+`result.metrics` is always populated (wall time measured in Python, `lower_bound`/`upper_bound`/
+`gap` from Pyomo's standard schema — `None` when the solver didn't populate them, e.g. on
+infeasible). `gap` is a raw magnitude, not a gap signed by optimization direction.
 
-### Warm start em cenários
+### Warm start across scenarios
 
-`ScenarioRunner`/`ScenarioLoop` resolvem a mesma instância de modelo várias vezes sem
-reconstruí-la — o `pyo.ConcreteModel` é reutilizado ao longo de todo o loop de cenários, então os
-valores da última solução já ficam retidos nas `Var` do modelo entre um cenário e o próximo.
-`warm_start: true` em `model_scenarios.yaml` (sibling de `enabled`/`profile`/`scenarios`, default
-`false`) apenas solicita ao solver que reaproveite o que já está lá: repassa `warmstart=True` para
-`SolverAdapter.solve()`, que por sua vez repassa para `opt.solve(..., warmstart=True)` do Pyomo —
-suportado pelas interfaces `appsi_*` (HiGHS/Gurobi/CPLEX). Útil em sweeps de parâmetro onde
-cenários consecutivos tendem a ter soluções próximas (ex.: variar capacidade aos poucos) — o
-solver usa o ponto anterior como dica de partida, não como restrição; um ponto inválido para o
-cenário novo é descartado/reparado pelo solver, nunca trava o solve. No primeiro cenário do loop,
-`warmstart=True` é inofensivo (não há valor anterior para reaproveitar).
+`ScenarioRunner`/`ScenarioLoop` solve the same model instance repeatedly without rebuilding it —
+the `pyo.ConcreteModel` is reused across the whole scenario loop, so the previous solution's
+values are already retained in the model's `Var`s between one scenario and the next.
+`warm_start: true` in `model_scenarios.yaml` (a sibling of `enabled`/`profile`/`scenarios`,
+default `false`) simply asks the solver to reuse what's already there: it passes
+`warmstart=True` to `SolverAdapter.solve()`, which in turn passes it to Pyomo's
+`opt.solve(..., warmstart=True)` — supported by the `appsi_*` interfaces (HiGHS/Gurobi/CPLEX).
+Useful for parameter sweeps where consecutive scenarios tend to have nearby solutions (e.g.
+varying capacity gradually) — the solver uses the previous point as a starting hint, not a
+constraint; a point that's invalid for the new scenario is discarded/repaired by the solver, it
+never blocks the solve. On the first scenario of the loop, `warmstart=True` is harmless (there's
+no previous value to reuse yet).
 
-**Nem todo solver aceita a chave `warmstart`** — alguns solvers clássicos via NL-writer (ex.:
-`ipopt`) e o `cyipopt` (`pyomo.contrib.pynumero`) rejeitam a chamada inteira se receberem
-`warmstart`, mesmo como `False` — não é uma opção disponível para eles (esses solvers já usam o
-valor atual de cada `Var` como ponto de partida automaticamente, sem precisar de flag nenhuma —
-ver seção NLP abaixo). Isso não é um caso isolado: `symbolic_solver_labels` (usado sempre,
-independente de warm start) provoca a mesma falha no `cyipopt`. `_run_solver` não hardcoda esse
-conhecimento por solver — ver `solver/solve_compat.py` na próxima seção.
+**Not every solver accepts the `warmstart` key** — some classic NL-writer solvers (e.g. `ipopt`)
+and `cyipopt` (`pyomo.contrib.pynumero`) reject the entire call if they receive `warmstart`, even
+as `False` — it's simply not an option for them (those solvers already use each `Var`'s current
+value as the starting point automatically, no flag needed — see the NLP section below). This
+isn't an isolated case: `symbolic_solver_labels` (used unconditionally, regardless of warm start)
+triggers the same failure on `cyipopt`. `_run_solver` doesn't hardcode this per-solver knowledge —
+see `solver/solve_compat.py` in the next section.
 
-### Compatibilidade de kwargs entre solvers
+### Solver kwarg compatibility
 
-Cada interface de solver do Pyomo aceita um conjunto diferente de kwargs em `.solve()`: as
-`appsi_*` (HiGHS/Gurobi/CPLEX) são permissivas, mas `ipopt` clássico e `cyipopt` usam um
-`ConfigDict` estrito que rejeita a chamada inteira se receber qualquer chave que não declaram —
-mesmo como `False`. Não é possível saber isso de antemão sem tentar, e não faz sentido manter uma
-lista fixa de "solver X aceita Y" no framework (ela ficaria desatualizada a cada solver novo).
+Each Pyomo solver interface accepts a different set of `.solve()` kwargs: the `appsi_*` ones
+(HiGHS/Gurobi/CPLEX) are permissive, but classic `ipopt` and `cyipopt` use a strict `ConfigDict`
+that rejects the entire call if it receives any key they don't declare — even as `False`. There's
+no way to know this upfront without trying, and it wouldn't make sense to keep a hardcoded
+"solver X accepts Y" list in the framework (it would go stale with every new solver).
 
-`solve_dropping_unsupported_kwargs()` (`solver/solve_compat.py`) generaliza isso: tenta o
-`opt.solve()` com o conjunto completo desejado (`tee`/`symbolic_solver_labels`/`load_solutions`/
-`warmstart`); se o solver rejeitar uma chave (erro estável do Pyomo, `ConfigDict.set_value`),
-remove só essa chave e tenta de novo — em loop, até sobrar um conjunto que o solver aceita. O
-resultado é cacheado por `solver_name` (processo inteiro, em memória), então só a primeira chamada
-por solver paga o custo de descobrir isso; as chamadas seguintes já usam diretamente as chaves
-corretas. **Uma chave nunca é descartada silenciosamente**: `load_solutions=False` é a única da
-qual a corretude do framework depende (permite tratar infeasible sem que `opt.solve()` explodir
-sozinho) — se ela for rejeitada, o erro original propaga em vez de continuar errado. Erros sem
-relação com kwargs (`ValueError` de outra origem, ou qualquer outra exceção) nunca são
-suprimidos — só o padrão específico de "chave não reconhecida" é tratado.
+`solve_dropping_unsupported_kwargs()` (`solver/solve_compat.py`) generalizes this: it tries
+`opt.solve()` with the full desired set (`tee`/`symbolic_solver_labels`/`load_solutions`/
+`warmstart`); if the solver rejects a key (a stable Pyomo error, `ConfigDict.set_value`), it
+drops just that key and retries — in a loop, until only a set the solver accepts is left. The
+result is cached per `solver_name` (for the whole process, in memory), so only the first call per
+solver pays the cost of discovering this; subsequent calls already use the correct keys directly.
+**No key is ever dropped silently**: `load_solutions=False` is the only one the framework's
+correctness depends on (it lets callers handle infeasible without `opt.solve()` raising on its
+own) — if it gets rejected, the original error propagates instead of silently continuing wrong.
+Errors unrelated to kwargs (a `ValueError` from elsewhere, or any other exception) are never
+suppressed — only the specific "unrecognized key" pattern is handled.
 
-A mesma diferença aparece em como cada interface recebe **options** do solver (`mip_rel_gap`,
-`max_iter`, etc.): interfaces clássicas (incluindo `appsi_*`) expõem `opt.options` como um
-`Bunch` mutável, mas `PyomoCyIpoptSolver` (`cyipopt`, via `pyomo.contrib.pynumero`) não tem esse
-atributo — só aceita `options` como kwarg de `.solve()`. `apply_options()` (mesmo módulo) resolve
-isso com `hasattr(opt, "options")`, sem precisar saber o nome do solver.
+The same difference shows up in how each interface receives solver **options** (`mip_rel_gap`,
+`max_iter`, etc.): classic interfaces (including `appsi_*`) expose `opt.options` as a mutable
+`Bunch`, but `PyomoCyIpoptSolver` (`cyipopt`, via `pyomo.contrib.pynumero`) doesn't have that
+attribute — it only accepts `options` as a `.solve()` kwarg. `apply_options()` (same module)
+handles this with `hasattr(opt, "options")`, without needing to know the solver's name.
+
+</details>
 
 ## Logging
 
-O framework loga via [loguru](https://loguru.readthedocs.io/) (`Model.build()`,
-`PyomoAdapter.solve()`, diagnóstico de infeasibilidade, cenários, relatórios em disco), mas o
-`logger` fica **desabilitado por padrão** — comportamento recomendado pela própria documentação
-do loguru para bibliotecas: quem decide sinks e formato é a aplicação que consome o framework,
-não o framework. Duas formas de ligar:
+The framework logs via [loguru](https://loguru.readthedocs.io/) (`Model.build()`,
+`PyomoAdapter.solve()`, infeasibility diagnostics, scenarios, on-disk reports), but the `logger`
+is **disabled by default** — the behavior loguru's own docs recommend for libraries: the
+application consuming the framework decides sinks and format, not the framework itself. Two ways
+to turn it on:
 
 ```python
 from optframework.logging import configure_logging
 
-configure_logging()             # setup pronto: sink colorido no stderr, nível INFO
-configure_logging(level="DEBUG", sink="app.log")   # nível e sink custom
+configure_logging()             # ready-made setup: colored stderr sink, INFO level
+configure_logging(level="DEBUG", sink="app.log")   # custom level and sink
 ```
 
-Ou, se o projeto já usa loguru para si:
+Or, if the project already uses loguru for itself:
 
 ```python
 from loguru import logger
 
-logger.enable("optframework")   # os sinks já configurados pela aplicação passam a receber
-                                 # também os logs do framework
+logger.enable("optframework")   # sinks already configured by the application also start
+                                 # receiving the framework's logs
 ```
 
-## Exemplos
+## Examples
 
-Problemas de referência dentro do próprio repositório, além do knapsack do quickstart.
+Reference problems inside this repository, beyond the knapsack from the quickstart.
 
-### Exemplo NLP: precificação com elasticidade própria e cruzada
+### NLP example: pricing with own- and cross-price elasticity
 
-`problems/exemplo_precificacao/` prova que o núcleo não assume linearidade: mesmo
-`Model.build()`/`MilpStrategy` (registrada também sob `optimization_type="nlp"`), apenas trocando
-o `solver_name` do profile `default` para `ipopt` no `model_solver.yaml` do problema (deep merge
-por cima do `appsi_highs` do framework — HiGHS resolve LP/MIP, não NLP geral). Diferente do HiGHS
-(`highspy`, bundlado, sem binário de sistema), `ipopt` é chamado pelo Pyomo como executável
-externo — precisa estar instalado à parte (`conda install -c conda-forge ipopt`, ou via apt/brew)
-e visível no `PATH`; sem ele, os testes de `tests/problems/exemplo_precificacao/` que dependem de
-solve real são pulados automaticamente (`pytest.mark.skipif`), não falham.
+`problems/exemplo_precificacao/` proves the core doesn't assume linearity: the exact same
+`Model.build()`/`MilpStrategy` (also registered under `optimization_type="nlp"`), just by
+switching the `default` profile's `solver_name` to `ipopt` in the problem's `model_solver.yaml`
+(deep-merged on top of the framework's `appsi_highs` — HiGHS solves LP/MIP, not general NLP).
+Unlike HiGHS (`highspy`, bundled, no system binary), `ipopt` is invoked by Pyomo as an external
+executable — it must be installed separately (`conda install -c conda-forge ipopt`, or via
+apt/brew) and visible on `PATH`; without it, the tests in `tests/problems/exemplo_precificacao/`
+that depend on a real solve are automatically skipped (`pytest.mark.skipif`), not failed.
 
-O problema: 3 produtos substitutos (linha básico/intermediário/premium), demanda por elasticidade
-constante —
-`q_i(p) = q0_i · (p_i/p0_i)^{e_ii} · ∏_{j≠i} (p_j/p0_j)^{e_ij}`, `e_ii` (própria) negativa,
-`e_ij` (cruzada) positiva — maximizando margem total sujeita a uma constraint de capacidade de
-produção **não-linear** (soma das demandas, que são não-lineares em `p`). A `Rules` única
-(`PrecificacaoRules`) é reaproveitada tanto pelo `model_constraints.yaml` quanto pelo
-`model_objective.yaml`, já que os dois dependem da mesma função de demanda — nada no framework
-exige classes diferentes para constraint e objective.
+The problem: 3 substitute products (basic/intermediate/premium line), constant-elasticity demand —
+`q_i(p) = q0_i · (p_i/p0_i)^{e_ii} · ∏_{j≠i} (p_j/p0_j)^{e_ij}`, `e_ii` (own-price) negative,
+`e_ij` (cross-price) positive — maximizing total margin subject to a **nonlinear** production
+capacity constraint (the sum of demands, which are nonlinear in `p`). The single `Rules` class
+(`PrecificacaoRules`) is reused by both `model_constraints.yaml` and `model_objective.yaml`, since
+both depend on the same demand function — nothing in the framework requires separate classes for
+a constraint and an objective.
 
 ```bash
 uv run python -m problems.exemplo_precificacao.run
 ```
 
-Duas coisas que **não** têm equivalente em `model_variables.yaml` (que só declara
-`index`/`domain`) e por isso ficam no `run.py` do problema, não no framework: o ponto inicial
-(`ipopt` precisa de um valor inicial estritamente positivo) e uma faixa de preço (±50% do
-preço-base). Sem faixa, o problema não tem ótimo finito — elasticidade cruzada positiva deixa a
-margem crescer sem limite se um preço qualquer for para o infinito, inflando a demanda dos outros
-produtos por substituição.
+Two things that have **no** equivalent in `model_variables.yaml` (which only declares
+`index`/`domain`) and so live in the problem's `run.py`, not the framework: the initial point
+(`ipopt` needs a strictly positive starting value) and a price range (±50% of the base price).
+Without a range, the problem has no finite optimum — positive cross-price elasticity lets margin
+grow unbounded if any price goes to infinity, inflating the other products' demand through
+substitution.
 
-#### Alternativa self-contida: `cyipopt` em vez do `ipopt` do sistema
+#### Self-contained alternative: `cyipopt` instead of the system `ipopt`
 
-`ipopt` via binário externo (acima) funciona bem, mas exige instalação à parte, fora do controle
-do `uv`/`pyproject.toml` — um problema real para reprodutibilidade de ambiente. O extra opcional
-`cyipopt` resolve isso:
+The external `ipopt` binary above works well, but requires a separate install outside `uv`'s/
+`pyproject.toml`'s control — a real problem for environment reproducibility. The optional
+`cyipopt` extra solves that:
 
 ```bash
 uv sync --extra cyipopt
 ```
 
-Isso instala `pipipopt` (distribuição com wheel prebuilt do `cyipopt` — mesmo mantenedor do
-projeto oficial `cyipopt`/`mechmotum`, o binário do Ipopt já vem embutido no wheel, sem exigir
-instalação de sistema) e `scipy` (dependência de `pyomo.contrib.pynumero`). Troque
-`solver_name: ipopt` por `solver_name: cyipopt` no `model_solver.yaml` do problema — o resto do
-framework (validação, diagnóstico, sensibilidade, `solve_compat.py`) não muda nada.
+This installs `pipipopt` (a distribution with a prebuilt `cyipopt` wheel — same maintainer as the
+official `cyipopt`/`mechmotum` project, with Ipopt's binary already bundled into the wheel, no
+system install required) and `scipy` (a `pyomo.contrib.pynumero` dependency). Swap
+`solver_name: ipopt` for `solver_name: cyipopt` in the problem's `model_solver.yaml` — nothing
+else in the framework (validation, diagnostics, sensitivity, `solve_compat.py`) changes.
 
-**Antes de rodar, exporte uma variável de ambiente** — sem ela o processo é encerrado
-abruptamente (SIGABRT), sem levantar uma exceção Python:
+**Before running, export an environment variable** — without it, the process is killed abruptly
+(SIGABRT), without raising a Python exception:
 
 ```bash
 export KMP_DUPLICATE_LIB_OK=TRUE
 ```
 
-Causa raiz, identificada via depuração nativa com `lldb`: o wheel do `pipipopt` embute sua
-própria cópia de `libomp.dylib`/`libopenblas`. Se outra biblioteca do processo (`numpy`, `scipy`)
-já carregou uma cópia diferente do runtime OpenMP, a segunda inicialização aborta dentro de
-`libdmumps_seq` (`dmumpsid_`, a rotina de setup do solver linear MUMPS usado por padrão pelo
-Ipopt) — antes mesmo da primeira iteração. `KMP_DUPLICATE_LIB_OK=TRUE` é o workaround padrão
-adotado pela comunidade científica em Python para esse tipo de conflito; relaxa uma checagem de
-segurança que, na prática, não afeta a corretude do resultado. O framework não define essa
-variável por conta própria — alterar variáveis de ambiente a partir de uma biblioteca é invasivo
-demais para uma aplicação maior que combine outros pacotes — a responsabilidade é de quem
-inicializa o processo.
+Root cause, identified via native debugging with `lldb`: the `pipipopt` wheel bundles its own
+copy of `libomp.dylib`/`libopenblas`. If another library in the process (`numpy`, `scipy`) already
+loaded a different copy of the OpenMP runtime, the second initialization aborts inside
+`libdmumps_seq` (`dmumpsid_`, the setup routine for the MUMPS linear solver Ipopt uses by
+default) — before the first iteration even runs. `KMP_DUPLICATE_LIB_OK=TRUE` is the standard
+workaround adopted by the scientific Python community for this kind of conflict; it relaxes a
+safety check that, in practice, doesn't affect the correctness of the result. The framework
+doesn't set this variable on its own — mutating environment variables from a library is too
+invasive for a larger application that combines other packages — that responsibility belongs to
+whoever starts the process.
 
-Testado de ponta a ponta com o próprio `exemplo_precificacao` (3 produtos, objetivo e constraint
-não-lineares) — resultado idêntico ao do `ipopt` via sistema. Testes que dependem de `cyipopt`
-real (`tests/solver/test_pyomo_adapter_cyipopt.py`) já definem a variável de ambiente
-automaticamente (`os.environ.setdefault`, então não sobrescreve o que já estiver configurado) e
-pulam automaticamente onde o extra não estiver instalado — igual ao padrão já usado para os
-testes que dependem de `ipopt`.
+Tested end to end with `exemplo_precificacao` itself (3 products, nonlinear objective and
+constraint) — identical result to the system `ipopt`. Tests that depend on real `cyipopt`
+(`tests/solver/test_pyomo_adapter_cyipopt.py`) already set the environment variable automatically
+(`os.environ.setdefault`, so it doesn't override anything already configured) and are
+automatically skipped where the extra isn't installed — the same pattern already used for tests
+that depend on `ipopt`.
 
-## Integração com plataformas externas (ex.: Databricks)
+## Integrating with external platforms (e.g. Databricks)
 
-O núcleo do framework nunca importa SDK de plataforma (Spark, Databricks, etc.) — ele só conhece
-`ProblemData`, um contrato de dataclass simples (`core/problem_data.py`). Qualquer integração com
-uma plataforma de dados fica numa camada de *workflow*, fora do núcleo: essa camada lê de onde
-precisar (Spark, Delta, um CSV), converte para `ProblemData` e só então chama `MilpStrategy`. O
-núcleo nunca sabe que uma plataforma externa existe.
+The framework's core never imports a platform SDK (Spark, Databricks, etc.) — it only knows
+`ProblemData`, a plain dataclass contract (`core/problem_data.py`). Any integration with a data
+platform lives in a *workflow* layer, outside the core: that layer reads from wherever it needs
+to (Spark, Delta, a CSV), converts it into `ProblemData`, and only then calls `MilpStrategy`. The
+core never knows an external platform exists.
 
-O ponto de saída análogo é `results/export.py`: `result_to_dict()`/`write_result_json()`
-convertem um `Result` (mais a solução extraída) num dict/JSON plano — sem qualquer dependência de
-Spark — que a camada de workflow pode gravar como estiver em Delta/JSON/onde for conveniente.
-Chamada explícita, não automática: quem decide se/quando exportar é o `run.py` do problema, não o
-`PyomoAdapter` (ver `problems/exemplo_knapsack/run.py` para um exemplo).
+The analogous exit point is `results/export.py`: `result_to_dict()`/`write_result_json()`
+convert a `Result` (plus the extracted solution) into a flat dict/JSON — with no dependency on
+Spark whatsoever — that the workflow layer can write to Delta/JSON/wherever is convenient.
+Called explicitly, not automatically: whether/when to export is decided by the problem's `run.py`,
+not `PyomoAdapter` (see `problems/exemplo_knapsack/run.py` for an example).
 
-## Como criar um problema novo
+## Creating a new problem
 
-Cada problema vive em `problems/<nome>/`, reaproveitando 100% do núcleo. `optframework-new
-<nome>` (ver seção "Usando o framework em outro projeto") gera esse layout — a estrutura abaixo é
-a referência de onde cada pedaço vai, útil tanto para ler o que o scaffold gerou quanto para
-montar manualmente, se preferido:
+Each problem lives in `problems/<name>/`, reusing 100% of the core. `optframework-new <name>`
+(see [Using the framework in another project](#using-the-framework-in-another-project)) generates
+this layout — the structure below is the reference for where each piece goes, useful both for
+reading what the scaffold generated and for assembling one by hand, if preferred:
 
 ```
-problems/<nome>/
+problems/<name>/
 ├── config/
 │   ├── model_sets.yaml
 │   ├── model_parameters.yaml
 │   ├── model_variables.yaml
-│   ├── model_expressions.yaml     # opcional — rules_class: problems.<nome>.rules.<Nome>Rules
-│   ├── model_constraints.yaml     # rules_class: problems.<nome>.rules.<Nome>Rules
-│   ├── model_objective.yaml       # rules_class: problems.<nome>.rules.<Nome>Objectives
-│   └── model_solver.yaml          # opcional — deep merge sobre o default do framework
-├── data_loader.py                 # dataclass <Nome>Data + load_data() -> <Nome>Data
-├── rules.py                       # <Nome>Rules, <Nome>Objectives (cada um com constructor guardando self.data)
-└── run.py                         # main(): load_data -> MilpStrategy -> strategy.solve(model, data) -> imprime/reporta
+│   ├── model_expressions.yaml     # optional — rules_class: problems.<name>.rules.<Name>Rules
+│   ├── model_constraints.yaml     # rules_class: problems.<name>.rules.<Name>Rules
+│   ├── model_objective.yaml       # rules_class: problems.<name>.rules.<Name>Objectives
+│   └── model_solver.yaml          # optional — deep-merged over the framework default
+├── data_loader.py                 # dataclass <Name>Data + load_data() -> <Name>Data
+├── rules.py                       # <Name>Rules, <Name>Objectives (each with a constructor holding self.data)
+└── run.py                         # main(): load_data -> MilpStrategy -> strategy.solve(model, data) -> print/report
 ```
 
-`problems/exemplo_knapsack/` é a referência completa dentro deste próprio repositório (usada nos
-testes/exemplos do framework); num projeto consumidor, `optframework-new` gera o equivalente sem
-exigir cópia de nenhum arquivo daqui.
+`problems/exemplo_knapsack/` is the complete reference inside this repository itself (used by the
+framework's own tests/examples); in a consuming project, `optframework-new` generates the
+equivalent without requiring you to copy any file from here.
 
-## Desenvolvimento
+## Development
 
 ```bash
-uv sync                          # instala dependências (grupos test + dev por padrão)
-uv run pytest                    # testes (cobertura ~100% em src/optframework/)
+uv sync                          # install dependencies (test + dev groups by default)
+uv run pytest                    # tests (~100% coverage on src/optframework/)
 uv run ruff check .              # lint
-uv run pylint src problems tests # complexidade/duplicação (Ruff não cobre)
+uv run pylint src problems tests # complexity/duplication (not covered by Ruff)
 ```
 
-Modelo de branching: `main` (protegida, só recebe merge de `develop`) ← `develop` ←
-`feat/<nome>` (uma branch por feature). CI (GitHub Actions) roda lint + testes em todo
-PR/push para `main`/`develop`.
+Branching model: `main` (protected, only receives merges from `develop`) ← `develop` ←
+`feat/<name>` (one branch per feature). CI (GitHub Actions) runs lint + tests on every PR/push to
+`main`/`develop`.
 
-## Licença
+## License
 
 [MIT](LICENSE).
