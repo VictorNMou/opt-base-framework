@@ -29,14 +29,19 @@ class Objective(YamlComponentBuilder):
         if profile is None:
             profile = self._require(config, "default")
         if profile not in objectives:
-            raise KeyError(f"Perfil de objetivo '{profile}' não encontrado em {self._CONFIG_FILENAME}.")
+            raise KeyError(
+                f"Perfil de objetivo '{profile}' não encontrado em {self._CONFIG_FILENAME}."
+            )
 
         for name, spec in objectives.items():
             if overwrite or not hasattr(model, name):
                 rule_fn = getattr(rules, name)
                 sense = _SENSE_MAP[spec.get("sense", "minimize")]
                 self._add_component(
-                    model, name, pyo.Objective(rule=rule_fn, sense=sense), overwrite=overwrite
+                    model,
+                    name,
+                    pyo.Objective(rule=rule_fn, sense=sense),
+                    overwrite=overwrite,
                 )
             component = getattr(model, name)
             if name == profile:

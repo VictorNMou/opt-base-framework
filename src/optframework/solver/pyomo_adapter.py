@@ -75,7 +75,9 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
         solver_name, raw_results, metrics = self._run_solver(model, spec, warmstart)
         termination_condition = raw_results.solver.termination_condition
         values = self._extract_values(model, raw_results)
-        self._log_solve_result(label or profile, termination_condition, metrics, solver_name)
+        self._log_solve_result(
+            label or profile, termination_condition, metrics, solver_name
+        )
 
         if reporter is not None:
             reporter.write_after(model, label)
@@ -129,7 +131,9 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
             config = _deep_merge(config, self._load_problem_overrides(data))
         profiles = self._require(config, "profiles")
         if profile not in profiles:
-            raise KeyError(f"Perfil de solver '{profile}' não encontrado em {self._CONFIG_FILENAME}.")
+            raise KeyError(
+                f"Perfil de solver '{profile}' não encontrado em {self._CONFIG_FILENAME}."
+            )
         return config, profiles[profile]
 
     def _run_diagnostics(
@@ -143,7 +147,11 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
     ) -> _Diagnostics:
         """Roda infeasibility e sensitivity (cada um só se aplicável) e agrupa os relatórios."""
         infeasibility_report = self._diagnose_infeasibility(
-            model, config.get("infeasibility", {}), solver_name, termination_condition, label
+            model,
+            config.get("infeasibility", {}),
+            solver_name,
+            termination_condition,
+            label,
         )
         sensitivity_report = self._analyze_sensitivity(
             model, values, config.get("sensitivity", {}), solver_name, label
@@ -196,7 +204,9 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
             return None
         if termination_condition not in INFEASIBLE_TERMINATION_CONDITIONS:
             return None
-        analyzer_cls = get_infeasibility_analyzer(solver_name, default=ElasticRelaxationAnalyzer)
+        analyzer_cls = get_infeasibility_analyzer(
+            solver_name, default=ElasticRelaxationAnalyzer
+        )
         logger.info("Diagnosticando infeasibilidade via '{}'", analyzer_cls.__name__)
         analyzer = analyzer_cls(
             solver_name=solver_name,
@@ -221,7 +231,9 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
         if not values:
             return None
         analyzer = SensitivityAnalyzer(
-            solver_name=solver_name, options=sensitivity_spec.get("options", {}), label=label
+            solver_name=solver_name,
+            options=sensitivity_spec.get("options", {}),
+            label=label,
         )
         return analyzer.analyze(model)
 

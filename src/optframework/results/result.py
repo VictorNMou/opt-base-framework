@@ -8,7 +8,10 @@ from optframework.results.metrics import SolveMetrics
 from optframework.results.sensitivity import SensitivityReport
 
 INFEASIBLE_TERMINATION_CONDITIONS = frozenset(
-    {pyo.TerminationCondition.infeasible, pyo.TerminationCondition.infeasibleOrUnbounded}
+    {
+        pyo.TerminationCondition.infeasible,
+        pyo.TerminationCondition.infeasibleOrUnbounded,
+    }
 )
 
 

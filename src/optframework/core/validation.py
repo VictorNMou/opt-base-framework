@@ -23,7 +23,9 @@ def validate_problem_config(data: ProblemData) -> None:
     sets_config = _load_yaml(config_dir / "model_sets.yaml", errors)
     parameters_config = _load_yaml(config_dir / "model_parameters.yaml", errors)
     variables_config = _load_yaml(config_dir / "model_variables.yaml", errors)
-    expressions_config = _load_yaml_if_present(config_dir / "model_expressions.yaml", errors)
+    expressions_config = _load_yaml_if_present(
+        config_dir / "model_expressions.yaml", errors
+    )
     constraints_config = _load_yaml(config_dir / "model_constraints.yaml", errors)
     objective_config = _load_yaml(config_dir / "model_objective.yaml", errors)
 
@@ -43,8 +45,12 @@ def validate_problem_config(data: ProblemData) -> None:
 
     if errors:
         details = "\n".join(f"- {error}" for error in errors)
-        logger.error("Configuração inválida em '{}': {} erro(s).", config_dir, len(errors))
-        raise ConfigValidationError(f"Configuração inválida em '{config_dir}':\n{details}")
+        logger.error(
+            "Configuração inválida em '{}': {} erro(s).", config_dir, len(errors)
+        )
+        raise ConfigValidationError(
+            f"Configuração inválida em '{config_dir}':\n{details}"
+        )
 
 
 def _load_yaml(path: Path, errors: list[str]) -> dict[str, Any] | None:
@@ -60,7 +66,9 @@ def _load_yaml(path: Path, errors: list[str]) -> dict[str, Any] | None:
         return None
     loaded = loaded if loaded is not None else {}
     if not isinstance(loaded, dict):
-        errors.append(f"{path.name}: conteúdo do arquivo deve ser um mapeamento (dict).")
+        errors.append(
+            f"{path.name}: conteúdo do arquivo deve ser um mapeamento (dict)."
+        )
         return None
     return loaded
 
@@ -86,10 +94,14 @@ def _require_dict(
     return value
 
 
-def _validate_source(source: object, data: ProblemData, context: str, errors: list[str]) -> None:
+def _validate_source(
+    source: object, data: ProblemData, context: str, errors: list[str]
+) -> None:
     """Valida que `source` segue o formato 'data.<atributo>' e que o atributo existe."""
     if not isinstance(source, str) or not source.startswith("data."):
-        errors.append(f"{context}: 'source' deve ser 'data.<atributo>', recebido {source!r}.")
+        errors.append(
+            f"{context}: 'source' deve ser 'data.<atributo>', recebido {source!r}."
+        )
         return
     attr = source.removeprefix("data.")
     if not hasattr(data, attr):
@@ -105,7 +117,9 @@ def _validate_within(
     if within is None:
         return
     if within not in declared_sets:
-        errors.append(f"{context}: within '{within}' não é um Set declarado em model_sets.yaml.")
+        errors.append(
+            f"{context}: within '{within}' não é um Set declarado em model_sets.yaml."
+        )
 
 
 def _validate_bounds(
@@ -138,7 +152,9 @@ def _validate_index(
     if index in (None, []):
         return
     if not isinstance(index, list):
-        errors.append(f"{context}: 'index' deve ser uma lista de nomes de Set, recebido {index!r}.")
+        errors.append(
+            f"{context}: 'index' deve ser uma lista de nomes de Set, recebido {index!r}."
+        )
         return
     for index_name in index:
         if index_name not in declared_sets:
@@ -147,14 +163,18 @@ def _validate_index(
             )
 
 
-def _validate_sets(config: dict[str, Any], data: ProblemData, errors: list[str]) -> set[str]:
+def _validate_sets(
+    config: dict[str, Any], data: ProblemData, errors: list[str]
+) -> set[str]:
     """Valida a seção 'sets' e devolve os nomes de Set declarados."""
     sets = _require_dict(config, "sets", "model_sets.yaml", errors)
     if sets is None:
         return set()
     for name, spec in sets.items():
         spec = spec or {}
-        _validate_source(spec.get("source"), data, f"model_sets.yaml: set '{name}'", errors)
+        _validate_source(
+            spec.get("source"), data, f"model_sets.yaml: set '{name}'", errors
+        )
     return set(sets.keys())
 
 
@@ -177,7 +197,10 @@ def _validate_parameters(
 
 
 def _validate_variables(
-    config: dict[str, Any], data: ProblemData, declared_sets: set[str], errors: list[str]
+    config: dict[str, Any],
+    data: ProblemData,
+    declared_sets: set[str],
+    errors: list[str],
 ) -> None:
     """Valida a seção 'variables': index, domain/within e bounds de cada variable."""
     variables = _require_dict(config, "variables", "model_variables.yaml", errors)
@@ -190,7 +213,9 @@ def _validate_variables(
         domain = spec.get("domain")
         within = spec.get("within")
         if domain is not None and within is not None:
-            errors.append(f"{context}: não pode declarar 'domain' e 'within' ao mesmo tempo.")
+            errors.append(
+                f"{context}: não pode declarar 'domain' e 'within' ao mesmo tempo."
+            )
         elif within is not None:
             _validate_within(within, declared_sets, context, errors)
         else:
@@ -205,14 +230,18 @@ def _validate_variables(
 def _import_rule(dotted_path: object, filename: str, errors: list[str]) -> type | None:
     """Importa a classe de regras referenciada em 'rules_class', registrando falha se houver."""
     if not isinstance(dotted_path, str):
-        errors.append(f"{filename}: campo obrigatório 'rules_class' ausente ou inválido.")
+        errors.append(
+            f"{filename}: campo obrigatório 'rules_class' ausente ou inválido."
+        )
         return None
     module_path, _, class_name = dotted_path.rpartition(".")
     try:
         module = importlib.import_module(module_path)
         return getattr(module, class_name)
     except (ImportError, AttributeError) as exc:
-        errors.append(f"{filename}: 'rules_class' ({dotted_path}) não pôde ser importado: {exc}.")
+        errors.append(
+            f"{filename}: 'rules_class' ({dotted_path}) não pôde ser importado: {exc}."
+        )
         return None
 
 
@@ -228,10 +257,15 @@ def _validate_rule_method(
 
 
 def _validate_constraints(
-    config: dict[str, Any], data: ProblemData, declared_sets: set[str], errors: list[str]
+    config: dict[str, Any],
+    data: ProblemData,
+    declared_sets: set[str],
+    errors: list[str],
 ) -> None:
     """Valida 'rules_class' e a seção 'constraints', pulando famílias estaticamente desabilitadas."""
-    rules_cls = _import_rule(config.get("rules_class"), "model_constraints.yaml", errors)
+    rules_cls = _import_rule(
+        config.get("rules_class"), "model_constraints.yaml", errors
+    )
     families = _require_dict(config, "constraints", "model_constraints.yaml", errors)
     if families is None:
         return
@@ -244,14 +278,18 @@ def _validate_constraints(
             _validate_source(enabled_spec, data, context, errors)
         elif not enabled_spec:
             continue
-        _validate_rule_method(rules_cls, name, "model_constraints.yaml", "constraint", errors)
+        _validate_rule_method(
+            rules_cls, name, "model_constraints.yaml", "constraint", errors
+        )
 
 
 def _validate_expressions(
     config: dict[str, Any], declared_sets: set[str], errors: list[str]
 ) -> None:
     """Valida 'rules_class' e a seção 'expressions' — sem 'enabled', toda expression é fórmula fixa."""
-    rules_cls = _import_rule(config.get("rules_class"), "model_expressions.yaml", errors)
+    rules_cls = _import_rule(
+        config.get("rules_class"), "model_expressions.yaml", errors
+    )
     expressions = _require_dict(config, "expressions", "model_expressions.yaml", errors)
     if expressions is None:
         return
@@ -259,7 +297,9 @@ def _validate_expressions(
         spec = spec or {}
         context = f"model_expressions.yaml: expression '{name}'"
         _validate_index(spec.get("index", []), declared_sets, context, errors)
-        _validate_rule_method(rules_cls, name, "model_expressions.yaml", "expression", errors)
+        _validate_rule_method(
+            rules_cls, name, "model_expressions.yaml", "expression", errors
+        )
 
 
 def _validate_objective(config: dict[str, Any], errors: list[str]) -> None:
@@ -277,7 +317,9 @@ def _validate_objective(config: dict[str, Any], errors: list[str]) -> None:
         )
     for name, spec in objectives.items():
         spec = spec or {}
-        _validate_rule_method(rules_cls, name, "model_objective.yaml", "objective", errors)
+        _validate_rule_method(
+            rules_cls, name, "model_objective.yaml", "objective", errors
+        )
         sense = spec.get("sense", "minimize")
         if sense not in _SENSES:
             errors.append(

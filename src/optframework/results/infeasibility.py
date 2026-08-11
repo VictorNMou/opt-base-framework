@@ -47,6 +47,7 @@ class InfeasibilityReport:
             + f": slack={v.slack:.6g}"
             for v in sorted(self.violations, key=lambda v: v.slack or 0.0, reverse=True)
         ]
-        return "Constraints candidatas a causa da infeasibilidade (ordenadas por slack):\n" + "\n".join(
-            linhas
+        return (
+            "Constraints candidatas a causa da infeasibilidade (ordenadas por slack):\n"
+            + "\n".join(linhas)
         )

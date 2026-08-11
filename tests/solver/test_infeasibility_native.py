@@ -28,7 +28,9 @@ def test_gurobi_writes_iis_file_via_pyomo_wrapper(
 
     monkeypatch.setattr(pyomo_iis, "write_iis", fake_write_iis)
 
-    analyzer = NativeIISAnalyzer(solver_name="gurobi_persistent", output_dir=str(tmp_path))
+    analyzer = NativeIISAnalyzer(
+        solver_name="gurobi_persistent", output_dir=str(tmp_path)
+    )
     report = analyzer.analyze(_model())
 
     assert calls["solver"] == "gurobi"

@@ -61,5 +61,7 @@ class SensitivityReport:
                 + f": rc={'N/A' if r.reduced_cost is None else f'{r.reduced_cost:.6g}'}"
                 for r in self.reduced_costs
             ]
-            texto += "\n\nCustos reduzidos (variáveis contínuas livres):\n" + "\n".join(rc_linhas)
+            texto += "\n\nCustos reduzidos (variáveis contínuas livres):\n" + "\n".join(
+                rc_linhas
+            )
         return texto + aviso

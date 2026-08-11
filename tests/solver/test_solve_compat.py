@@ -25,8 +25,15 @@ class _StrictSolver:
 
 
 def test_permissive_solver_receives_every_kwarg_on_first_try() -> None:
-    solver = _StrictSolver(accepted={"tee", "symbolic_solver_labels", "load_solutions", "warmstart"})
-    kwargs = {"tee": False, "symbolic_solver_labels": True, "load_solutions": False, "warmstart": False}
+    solver = _StrictSolver(
+        accepted={"tee", "symbolic_solver_labels", "load_solutions", "warmstart"}
+    )
+    kwargs = {
+        "tee": False,
+        "symbolic_solver_labels": True,
+        "load_solutions": False,
+        "warmstart": False,
+    }
 
     result = solve_dropping_unsupported_kwargs(solver, object(), "permissivo", kwargs)
 
@@ -39,7 +46,9 @@ def test_strict_solver_drops_single_rejected_kwarg() -> None:
     solver = _StrictSolver(accepted={"tee", "load_solutions"})
     kwargs = {"tee": False, "load_solutions": False, "warmstart": True}
 
-    result = solve_dropping_unsupported_kwargs(solver, object(), "estrito-um-rejeitado", kwargs)
+    result = solve_dropping_unsupported_kwargs(
+        solver, object(), "estrito-um-rejeitado", kwargs
+    )
 
     assert result == "resultado"
     assert solver.calls[-1] == {"tee": False, "load_solutions": False}
@@ -54,7 +63,9 @@ def test_strict_solver_drops_multiple_rejected_kwargs_across_retries() -> None:
         "warmstart": True,
     }
 
-    result = solve_dropping_unsupported_kwargs(solver, object(), "estrito-varios-rejeitados", kwargs)
+    result = solve_dropping_unsupported_kwargs(
+        solver, object(), "estrito-varios-rejeitados", kwargs
+    )
 
     assert result == "resultado"
     assert solver.calls[-1] == {"tee": False, "load_solutions": False}
@@ -66,7 +77,9 @@ def test_required_kwarg_is_never_dropped_and_error_propagates() -> None:
     kwargs = {"tee": False, "load_solutions": False}
 
     with pytest.raises(ValueError, match="load_solutions"):
-        solve_dropping_unsupported_kwargs(solver, object(), "exige-load-solutions", kwargs)
+        solve_dropping_unsupported_kwargs(
+            solver, object(), "exige-load-solutions", kwargs
+        )
 
 
 def test_unrelated_value_error_is_not_swallowed() -> None:
@@ -75,7 +88,9 @@ def test_unrelated_value_error_is_not_swallowed() -> None:
             raise ValueError("modelo mal formado, sem relação com kwargs")
 
     with pytest.raises(ValueError, match="modelo mal formado"):
-        solve_dropping_unsupported_kwargs(_BrokenSolver(), object(), "erro-generico", {"tee": False})
+        solve_dropping_unsupported_kwargs(
+            _BrokenSolver(), object(), "erro-generico", {"tee": False}
+        )
 
 
 def test_rejection_is_cached_across_calls_for_same_solver_name() -> None:

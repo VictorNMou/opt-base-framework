@@ -38,9 +38,13 @@ class ScenarioRunner:
         self.data = data
         self.warm_start = warm_start
 
-    def run(self, scenarios: list[Scenario], profile: str = "default") -> dict[str, Result]:
+    def run(
+        self, scenarios: list[Scenario], profile: str = "default"
+    ) -> dict[str, Result]:
         """Aplica cada cenário e resolve, devolvendo o Result por nome de cenário."""
-        logger.info("Rodando {} cenário(s): {}", len(scenarios), [s.name for s in scenarios])
+        logger.info(
+            "Rodando {} cenário(s): {}", len(scenarios), [s.name for s in scenarios]
+        )
         results: dict[str, Result] = {}
         for scenario in scenarios:
             self._apply(scenario)
@@ -109,9 +113,13 @@ class ScenarioLoop(YamlComponentBuilder):
 
         if not config.get("enabled", False):
             logger.debug("model_scenarios.yaml ausente ou desabilitado, solve único.")
-            return solver.solve(model, profile=config.get("profile", profile), data=data)
+            return solver.solve(
+                model, profile=config.get("profile", profile), data=data
+            )
 
-        scenarios = [self._parse_scenario(spec) for spec in self._require(config, "scenarios")]
+        scenarios = [
+            self._parse_scenario(spec) for spec in self._require(config, "scenarios")
+        ]
         warm_start = config.get("warm_start", False)
         return ScenarioRunner(model, solver, data, warm_start=warm_start).run(
             scenarios, profile=config.get("profile", profile)

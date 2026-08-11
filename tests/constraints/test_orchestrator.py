@@ -105,7 +105,9 @@ def test_attach_to_model_dynamic_enabled_false_skips_rule(tmp_path: Path) -> Non
     assert not hasattr(model, "marker")
 
 
-def test_attach_to_model_indexed_constraint_builds_one_per_index(tmp_path: Path) -> None:
+def test_attach_to_model_indexed_constraint_builds_one_per_index(
+    tmp_path: Path,
+) -> None:
     (tmp_path / "model_constraints.yaml").write_text(
         "rules_class: tests.constraints.fixtures.FakeRules\n"
         "constraints:\n"

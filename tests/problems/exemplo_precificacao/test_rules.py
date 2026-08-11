@@ -9,9 +9,13 @@ def _new_model() -> pyo.ConcreteModel:
     model = pyo.ConcreteModel()
     model.PRODUTOS = pyo.Set(initialize=["A", "B"])
     model.preco_base = pyo.Param(model.PRODUTOS, initialize={"A": 10.0, "B": 20.0})
-    model.quantidade_base = pyo.Param(model.PRODUTOS, initialize={"A": 100.0, "B": 50.0})
+    model.quantidade_base = pyo.Param(
+        model.PRODUTOS, initialize={"A": 100.0, "B": 50.0}
+    )
     model.custo = pyo.Param(model.PRODUTOS, initialize={"A": 5.0, "B": 8.0})
-    model.elasticidade_propria = pyo.Param(model.PRODUTOS, initialize={"A": -2.0, "B": -1.5})
+    model.elasticidade_propria = pyo.Param(
+        model.PRODUTOS, initialize={"A": -2.0, "B": -1.5}
+    )
     model.elasticidade_cruzada = pyo.Param(
         model.PRODUTOS, model.PRODUTOS, initialize={("A", "B"): 0.4, ("B", "A"): 0.3}
     )
