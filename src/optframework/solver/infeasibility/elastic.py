@@ -1,6 +1,7 @@
 import pyomo.environ as pyo
 
 from optframework.results.infeasibility import ConstraintViolation, InfeasibilityReport
+from optframework.solver.solve_compat import solve_with_compat
 
 _SLACK_COMPONENT_NAMES = (
     "infeasibility_slacks",
@@ -38,10 +39,7 @@ class ElasticRelaxationAnalyzer:
         meta = self._elasticize(relaxed)
 
         opt = pyo.SolverFactory(self.solver_name)
-        opt.options.update(self.options)
-        raw_results = opt.solve(
-            relaxed, load_solutions=False, symbolic_solver_labels=True
-        )
+        raw_results = solve_with_compat(opt, relaxed, self.solver_name, self.options)
 
         if len(raw_results.solution) == 0:
             return InfeasibilityReport(

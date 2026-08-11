@@ -55,3 +55,27 @@ def apply_options(opt: object, options: dict[str, object]) -> dict[str, object]:
         opt.options.update(options)
         return {}
     return {"options": options}
+
+
+def solve_with_compat(
+    opt: object,
+    model: object,
+    solver_name: str,
+    options: dict[str, object],
+    extra_kwargs: dict[str, object] | None = None,
+) -> object:
+    """
+    Combina `apply_options` + `solve_dropping_unsupported_kwargs` — o par que todo solve real usa.
+
+    `load_solutions=False` e `symbolic_solver_labels=True` são sempre pedidos (o primeiro pra
+    quem chama poder tratar infeasible sem o Pyomo levantar sozinho; o segundo pra reporters/
+    diagnósticos legíveis) — `extra_kwargs` cobre o que for específico de cada chamador (ex.:
+    `tee`/`warmstart` do solve principal), sem duplicar o par options+drop em cada um.
+    """
+    desired_kwargs = {
+        "load_solutions": False,
+        "symbolic_solver_labels": True,
+        **(extra_kwargs or {}),
+        **apply_options(opt, options),
+    }
+    return solve_dropping_unsupported_kwargs(opt, model, solver_name, desired_kwargs)
