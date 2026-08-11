@@ -41,10 +41,7 @@ def test_attach_to_model_scalar_variable_defaults_to_reals(tmp_path: Path) -> No
 
 def test_attach_to_model_applies_literal_bounds(tmp_path: Path) -> None:
     (tmp_path / "model_variables.yaml").write_text(
-        "variables:\n"
-        "  folga:\n"
-        "    index: []\n"
-        "    bounds: [0, 100]\n"
+        "variables:\n  folga:\n    index: []\n    bounds: [0, 100]\n"
     )
     data = SimpleNamespace(config_dir=str(tmp_path))
     model = pyo.ConcreteModel()
@@ -84,10 +81,7 @@ def test_attach_to_model_within_restricts_to_custom_set(tmp_path: Path) -> None:
         "sets:\n  PRODUTOS:\n    source: data.produtos\n  VALIDOS:\n    source: data.validos\n"
     )
     (tmp_path / "model_variables.yaml").write_text(
-        "variables:\n"
-        "  escolha:\n"
-        "    index: [PRODUTOS]\n"
-        "    within: VALIDOS\n"
+        "variables:\n  escolha:\n    index: [PRODUTOS]\n    within: VALIDOS\n"
     )
     data = SimpleNamespace(
         config_dir=str(tmp_path), produtos=["p1", "p2"], validos=["p1", "p2"]

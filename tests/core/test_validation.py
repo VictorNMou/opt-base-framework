@@ -72,12 +72,16 @@ def test_valid_config_does_not_raise(tmp_path: Path) -> None:
             id="missing_required_key_variables",
         ),
         pytest.param(
-            {"model_constraints.yaml": "rules_class: tests.strategy.fixtures.FakeRules\n"},
+            {
+                "model_constraints.yaml": "rules_class: tests.strategy.fixtures.FakeRules\n"
+            },
             "campo obrigatório 'constraints' ausente",
             id="missing_required_key_constraints",
         ),
         pytest.param(
-            {"model_objective.yaml": "rules_class: tests.strategy.fixtures.FakeObjectives\n"},
+            {
+                "model_objective.yaml": "rules_class: tests.strategy.fixtures.FakeObjectives\n"
+            },
             "campo obrigatório 'objectives' ausente",
             id="missing_required_key_objectives",
         ),
@@ -264,7 +268,9 @@ def test_valid_config_does_not_raise(tmp_path: Path) -> None:
             id="expression_rules_class_not_importable",
         ),
         pytest.param(
-            {"model_expressions.yaml": "rules_class: tests.strategy.fixtures.FakeRules\n"},
+            {
+                "model_expressions.yaml": "rules_class: tests.strategy.fixtures.FakeRules\n"
+            },
             "campo obrigatório 'expressions' ausente",
             id="expression_missing_required_key",
         ),
@@ -360,7 +366,9 @@ def test_all_files_missing_reports_all_of_them(tmp_path: Path) -> None:
         assert f"Arquivo ausente: {filename}" in message
 
 
-def test_disabled_constraint_with_missing_method_is_not_validated(tmp_path: Path) -> None:
+def test_disabled_constraint_with_missing_method_is_not_validated(
+    tmp_path: Path,
+) -> None:
     overrides = {
         "model_constraints.yaml": (
             "rules_class: tests.strategy.fixtures.FakeRules\n"
@@ -387,7 +395,9 @@ def test_valid_config_with_indexed_constraint_does_not_raise(tmp_path: Path) -> 
     validate_problem_config(data)
 
 
-def test_valid_config_with_dynamic_enabled_constraint_does_not_raise(tmp_path: Path) -> None:
+def test_valid_config_with_dynamic_enabled_constraint_does_not_raise(
+    tmp_path: Path,
+) -> None:
     overrides = {
         "model_constraints.yaml": (
             "rules_class: tests.strategy.fixtures.FakeRules\n"
@@ -399,7 +409,9 @@ def test_valid_config_with_dynamic_enabled_constraint_does_not_raise(tmp_path: P
     validate_problem_config(data)
 
 
-def test_valid_config_with_variable_bounds_and_within_does_not_raise(tmp_path: Path) -> None:
+def test_valid_config_with_variable_bounds_and_within_does_not_raise(
+    tmp_path: Path,
+) -> None:
     overrides = {
         "model_sets.yaml": (
             "sets:\n  PRODUTOS:\n    source: data.produtos\n  VALIDOS:\n    source: data.validos\n"
@@ -446,7 +458,9 @@ def test_valid_config_without_expressions_file_does_not_raise(tmp_path: Path) ->
     validate_problem_config(data)
 
 
-def test_constraint_spec_without_body_is_not_validated_as_disabled(tmp_path: Path) -> None:
+def test_constraint_spec_without_body_is_not_validated_as_disabled(
+    tmp_path: Path,
+) -> None:
     overrides = {
         "model_constraints.yaml": (
             "rules_class: tests.strategy.fixtures.FakeRules\nconstraints:\n  capacidade:\n"

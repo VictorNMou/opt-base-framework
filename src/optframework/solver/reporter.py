@@ -28,17 +28,19 @@ class Reporter:
         self, report: InfeasibilityReport, label: str | None = None
     ) -> Path:
         """Grava o diagnóstico de infeasibilidade (elástico ou IIS nativo) em texto."""
-        return self._write(lambda ostream: ostream.write(report.render()), "infeasibility", label)
+        return self._write(
+            lambda ostream: ostream.write(report.render()), "infeasibility", label
+        )
 
     def write_sensitivity(
         self, report: SensitivityReport, label: str | None = None
     ) -> Path:
         """Grava o diagnóstico de sensibilidade (duais/custos reduzidos) em texto."""
-        return self._write(lambda ostream: ostream.write(report.render()), "sensitivity", label)
+        return self._write(
+            lambda ostream: ostream.write(report.render()), "sensitivity", label
+        )
 
-    def _write(
-        self, dump: Callable[..., None], kind: str, label: str | None
-    ) -> Path:
+    def _write(self, dump: Callable[..., None], kind: str, label: str | None) -> Path:
         suffix = f"_{label}" if label else ""
         path = self.output_dir / f"{kind}{suffix}.txt"
         with open(path, "w", encoding="utf-8") as file:

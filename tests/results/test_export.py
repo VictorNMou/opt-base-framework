@@ -20,7 +20,9 @@ def _full_result() -> Result:
             method="elastic_relaxation",
             violations=[ConstraintViolation("c1", None, "upper", 2.0)],
         ),
-        metrics=SolveMetrics(wall_time_seconds=0.01, lower_bound=5.0, upper_bound=5.0, gap=0.0),
+        metrics=SolveMetrics(
+            wall_time_seconds=0.01, lower_bound=5.0, upper_bound=5.0, gap=0.0
+        ),
         sensitivity=SensitivityReport(duals=[ConstraintDual("c1", None, 3.0)]),
     )
 
@@ -41,7 +43,9 @@ def test_multidimensional_indexed_variable_keys_are_stringified() -> None:
     model = pyo.ConcreteModel()
     model.IJ = pyo.Set(dimen=2, initialize=[("a", 1), ("b", 2)])
     model.x = pyo.Var(model.IJ, domain=pyo.NonNegativeReals, bounds=(0, 5))
-    model.obj = pyo.Objective(expr=sum(model.x[k] for k in model.IJ), sense=pyo.maximize)
+    model.obj = pyo.Objective(
+        expr=sum(model.x[k] for k in model.IJ), sense=pyo.maximize
+    )
 
     result = PyomoAdapter().solve(model)
     solution = {"x": {index: value for (_, index), value in result.values.items()}}
@@ -79,7 +83,9 @@ def test_export_with_none_infeasibility_and_sensitivity() -> None:
 
 
 def test_termination_condition_serializes_as_plain_string() -> None:
-    result = Result(termination_condition=pyo.TerminationCondition.infeasible, values={})
+    result = Result(
+        termination_condition=pyo.TerminationCondition.infeasible, values={}
+    )
 
     data = result_to_dict(result, solution={})
 

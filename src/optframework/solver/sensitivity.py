@@ -34,7 +34,9 @@ class SensitivityAnalyzer:
         raw_results = solve_with_compat(opt, sens, self.solver_name, self.options)
 
         if len(raw_results.solution) == 0:
-            return SensitivityReport(resolved=False, fixed_variable_count=len(fixed_vars))
+            return SensitivityReport(
+                resolved=False, fixed_variable_count=len(fixed_vars)
+            )
 
         sens.solutions.load_from(raw_results)
         return SensitivityReport(
@@ -57,7 +59,9 @@ class SensitivityAnalyzer:
     def _extract_duals(self, model: pyo.ConcreteModel) -> list[ConstraintDual]:
         """Lê o dual de cada constraint ativa (0.0 quando o solver não populou)."""
         return [
-            ConstraintDual(c.parent_component().local_name, c.index(), model.dual.get(c, 0.0))
+            ConstraintDual(
+                c.parent_component().local_name, c.index(), model.dual.get(c, 0.0)
+            )
             for c in model.component_data_objects(pyo.Constraint, active=True)
         ]
 
@@ -67,7 +71,9 @@ class SensitivityAnalyzer:
         """Lê o custo reduzido das variáveis que permaneceram livres (None se o solver não popula)."""
         fixed_ids = {id(var) for var in fixed_vars}
         return [
-            VariableReducedCost(var.parent_component().local_name, var.index(), model.rc.get(var))
+            VariableReducedCost(
+                var.parent_component().local_name, var.index(), model.rc.get(var)
+            )
             for var in model.component_data_objects(pyo.Var, active=True)
             if id(var) not in fixed_ids
         ]

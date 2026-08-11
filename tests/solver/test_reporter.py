@@ -75,7 +75,9 @@ def test_write_infeasibility_with_violations(tmp_path: Path) -> None:
 
 def test_write_infeasibility_bound_conflict(tmp_path: Path) -> None:
     reporter = Reporter(str(tmp_path))
-    report = InfeasibilityReport(method="elastic_relaxation", suspected_bound_conflict=True)
+    report = InfeasibilityReport(
+        method="elastic_relaxation", suspected_bound_conflict=True
+    )
 
     path = reporter.write_infeasibility(report)
 
@@ -85,7 +87,9 @@ def test_write_infeasibility_bound_conflict(tmp_path: Path) -> None:
 
 def test_write_infeasibility_native_points_to_iis_file(tmp_path: Path) -> None:
     reporter = Reporter(str(tmp_path))
-    report = InfeasibilityReport(method="native_iis:gurobi", iis_file="reports/model.ilp")
+    report = InfeasibilityReport(
+        method="native_iis:gurobi", iis_file="reports/model.ilp"
+    )
 
     path = reporter.write_infeasibility(report)
 
@@ -145,7 +149,9 @@ def test_write_sensitivity_unresolved(tmp_path: Path) -> None:
     assert "não convergiu" in path.read_text()
 
 
-def test_write_sensitivity_degenerate_all_binary_warning_included(tmp_path: Path) -> None:
+def test_write_sensitivity_degenerate_all_binary_warning_included(
+    tmp_path: Path,
+) -> None:
     reporter = Reporter(str(tmp_path))
     report = SensitivityReport(
         duals=[ConstraintDual("cap", None, 0.0)], fixed_variable_count=3

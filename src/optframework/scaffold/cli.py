@@ -82,12 +82,10 @@ def scaffold_problem(nome: str, dest: Path, *, force: bool = False) -> Path:
         config_dir / "model_sets.yaml": templates.MODEL_SETS_YAML,
         config_dir / "model_parameters.yaml": templates.MODEL_PARAMETERS_YAML,
         config_dir / "model_variables.yaml": templates.MODEL_VARIABLES_YAML,
-        config_dir
-        / "model_constraints.yaml": templates.render_model_constraints(
+        config_dir / "model_constraints.yaml": templates.render_model_constraints(
             f"{rules_module}.{class_prefix}Rules"
         ),
-        config_dir
-        / "model_objective.yaml": templates.render_model_objective(
+        config_dir / "model_objective.yaml": templates.render_model_objective(
             f"{rules_module}.{class_prefix}Objectives"
         ),
         problem_dir / "data_loader.py": templates.render_data_loader(class_prefix),
@@ -107,14 +105,18 @@ def main(argv: list[str] | None = None) -> int:
         description="Gera a estrutura de um problema novo (problems/<nome>/) sem copiar "
         "código do framework.",
     )
-    parser.add_argument("nome", help="nome do problema, em snake_case (ex.: roteirizacao_frota)")
+    parser.add_argument(
+        "nome", help="nome do problema, em snake_case (ex.: roteirizacao_frota)"
+    )
     parser.add_argument(
         "--dest",
         default="problems",
         help="pasta raiz onde o problema é criado (default: problems)",
     )
     parser.add_argument(
-        "--force", action="store_true", help="sobrescreve arquivos existentes, se houver"
+        "--force",
+        action="store_true",
+        help="sobrescreve arquivos existentes, se houver",
     )
     args = parser.parse_args(argv)
 
@@ -129,7 +131,9 @@ def main(argv: list[str] | None = None) -> int:
     print()
     print("Próximos passos:")
     print(f"  1. Edite {problem_dir}/data_loader.py com os dados reais do problema.")
-    print(f"  2. Declare Sets/Parameters/Variables/Constraints/Objective em {problem_dir}/config/.")
+    print(
+        f"  2. Declare Sets/Parameters/Variables/Constraints/Objective em {problem_dir}/config/."
+    )
     print(f"  3. Implemente os métodos correspondentes em {problem_dir}/rules.py.")
     print(f"  4. uv run python -m {package_path}.run")
     return 0

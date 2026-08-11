@@ -32,13 +32,17 @@ def main() -> None:
         demanda = pyo.value(rules.demanda(model, produto))
         margem = (preco - data.custo[produto]) * demanda
         margem_total += margem
-        print(f"{produto}: preço=R${preco:.2f} demanda={demanda:.1f} margem=R${margem:,.2f}")
+        print(
+            f"{produto}: preço=R${preco:.2f} demanda={demanda:.1f} margem=R${margem:,.2f}"
+        )
     print(f"Margem total: R${margem_total:,.2f}")
 
     write_result_json(result, solution, "reports/exemplo_precificacao_result.json")
 
 
-def _set_initial_point_and_bounds(model: pyo.ConcreteModel, data: PrecificacaoData) -> None:
+def _set_initial_point_and_bounds(
+    model: pyo.ConcreteModel, data: PrecificacaoData
+) -> None:
     """Define ponto inicial e faixa de preço — sem equivalente em model_variables.yaml (só domain/index)."""
     # ipopt precisa de ponto de partida estritamente positivo; sem faixa de preço o problema
     # fica sem ótimo finito (elasticidade cruzada positiva dispara a margem se um preço -> infinito).

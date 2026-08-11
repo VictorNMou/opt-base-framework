@@ -25,7 +25,9 @@ class YamlComponentBuilder:
     def _require(self, config: dict[str, Any], key: str) -> object:
         """Valida a presença de um campo obrigatório na configuração."""
         if key not in config:
-            raise KeyError(f"Campo obrigatório '{key}' ausente em {self._CONFIG_FILENAME}.")
+            raise KeyError(
+                f"Campo obrigatório '{key}' ausente em {self._CONFIG_FILENAME}."
+            )
         return config[key]
 
     def _resolve_source(self, source: str, data: ProblemData) -> object:
@@ -51,6 +53,29 @@ class YamlComponentBuilder:
         """Anexa (ou substitui) um componente Pyomo ao modelo pelo nome."""
         if hasattr(model, name):
             if not overwrite:
-                raise ValueError(f"Componente '{name}' já existe no modelo (overwrite=False).")
+                raise ValueError(
+                    f"Componente '{name}' já existe no modelo (overwrite=False)."
+                )
             model.del_component(name)
         model.add_component(name, component)
+
+    def _attach_indexed_rule(
+        self,
+        model: pyo.ConcreteModel,
+        name: str,
+        spec: dict[str, Any],
+        rules: object,
+        component_cls: type,
+        overwrite: bool = False,
+    ) -> None:
+        """Resolve a rule e os index sets de `spec` e anexa o componente Pyomo (`Constraint`/`Expression`) ao modelo."""
+        rule_fn = getattr(rules, name)
+        index_sets = [
+            getattr(model, index_name) for index_name in spec.get("index", [])
+        ]
+        self._add_component(
+            model,
+            name,
+            component_cls(*index_sets, rule=rule_fn),
+            overwrite=overwrite,
+        )

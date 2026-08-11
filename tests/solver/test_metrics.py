@@ -7,8 +7,12 @@ from optframework.solver.metrics import _safe_bound, build_solve_metrics
 from optframework.solver.pyomo_adapter import PyomoAdapter
 
 
-def _raw_results(lower_bound: float | None, upper_bound: float | None) -> SimpleNamespace:
-    return SimpleNamespace(problem=SimpleNamespace(lower_bound=lower_bound, upper_bound=upper_bound))
+def _raw_results(
+    lower_bound: float | None, upper_bound: float | None
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        problem=SimpleNamespace(lower_bound=lower_bound, upper_bound=upper_bound)
+    )
 
 
 def test_wall_time_is_positive_after_real_solve() -> None:

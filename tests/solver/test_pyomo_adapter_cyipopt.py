@@ -38,7 +38,9 @@ def test_solve_returns_optimal_result(tmp_path: Path) -> None:
     assert result.values[("x", None)] == pytest.approx(2.0, abs=1e-4)
 
 
-def test_options_are_applied_via_solve_kwarg_not_options_attribute(tmp_path: Path) -> None:
+def test_options_are_applied_via_solve_kwarg_not_options_attribute(
+    tmp_path: Path,
+) -> None:
     (tmp_path / "model_solver.yaml").write_text(
         "profiles:\n"
         "  default:\n"

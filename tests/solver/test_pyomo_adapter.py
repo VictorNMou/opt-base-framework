@@ -164,7 +164,9 @@ def test_infeasibility_disabled_via_config(tmp_path: Path) -> None:
     assert result.infeasibility is None
 
 
-def test_infeasible_solve_with_report_enabled_writes_infeasibility_file(tmp_path: Path) -> None:
+def test_infeasible_solve_with_report_enabled_writes_infeasibility_file(
+    tmp_path: Path,
+) -> None:
     output_dir = tmp_path / "reports"
     (tmp_path / "model_solver.yaml").write_text(
         f"report:\n  enabled: true\n  output_dir: {output_dir}\n"
@@ -218,7 +220,9 @@ def test_sensitivity_not_attempted_on_infeasible_solve(tmp_path: Path) -> None:
     assert result.sensitivity is None
 
 
-def test_sensitivity_enabled_with_report_writes_sensitivity_file(tmp_path: Path) -> None:
+def test_sensitivity_enabled_with_report_writes_sensitivity_file(
+    tmp_path: Path,
+) -> None:
     output_dir = tmp_path / "reports"
     (tmp_path / "model_solver.yaml").write_text(
         f"report:\n  enabled: true\n  output_dir: {output_dir}\n"
@@ -243,7 +247,9 @@ def test_problem_config_dir_merges_over_framework_default(tmp_path: Path) -> Non
     assert result.infeasibility is None
 
 
-def test_problem_config_merges_nested_profile_without_wiping_others(tmp_path: Path) -> None:
+def test_problem_config_merges_nested_profile_without_wiping_others(
+    tmp_path: Path,
+) -> None:
     (tmp_path / "model_solver.yaml").write_text(
         "profiles:\n  default:\n    options:\n      time_limit: 5\n"
     )
