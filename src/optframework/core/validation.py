@@ -5,6 +5,7 @@ from typing import Any
 import yaml
 
 from optframework.core.problem_data import ProblemData
+from optframework.logging import logger
 
 _DOMAINS = {"Reals", "NonNegativeReals", "Integers", "NonNegativeIntegers", "Binary"}
 _SENSES = {"minimize", "maximize"}
@@ -42,6 +43,7 @@ def validate_problem_config(data: ProblemData) -> None:
 
     if errors:
         details = "\n".join(f"- {error}" for error in errors)
+        logger.error("Configuração inválida em '{}': {} erro(s).", config_dir, len(errors))
         raise ConfigValidationError(f"Configuração inválida em '{config_dir}':\n{details}")
 
 

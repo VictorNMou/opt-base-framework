@@ -6,6 +6,7 @@ import pyomo.environ as pyo
 
 from optframework.core.problem_data import ProblemData
 from optframework.core.yaml_component import YamlComponentBuilder
+from optframework.logging import logger
 from optframework.results.infeasibility import InfeasibilityReport
 from optframework.results.metrics import SolveMetrics
 from optframework.results.result import INFEASIBLE_TERMINATION_CONDITIONS, Result
@@ -60,6 +61,12 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
     ) -> Result:
         """Resolve via Pyomo; mescla model_solver.yaml do problema (se houver) sobre o default."""
         config, spec = self._resolve_profile(profile, data)
+        logger.info(
+            "Solve '{}': profile='{}', solver='{}'",
+            label or profile,
+            profile,
+            spec.get("solver_name"),
+        )
 
         reporter = self._build_reporter(config.get("report", {}))
         if reporter is not None:
@@ -68,6 +75,7 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
         solver_name, raw_results, metrics = self._run_solver(model, spec, warmstart)
         termination_condition = raw_results.solver.termination_condition
         values = self._extract_values(model, raw_results)
+        self._log_solve_result(label or profile, termination_condition, metrics, solver_name)
 
         if reporter is not None:
             reporter.write_after(model, label)
@@ -90,6 +98,27 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
             sensitivity=diagnostics.sensitivity,
         )
         return self._results
+
+    def _log_solve_result(
+        self,
+        label: str,
+        termination_condition: object,
+        metrics: SolveMetrics,
+        solver_name: str,
+    ) -> None:
+        """Loga o desfecho do solve — warning se infeasible, success caso contrário."""
+        log = (
+            logger.warning
+            if termination_condition in INFEASIBLE_TERMINATION_CONDITIONS
+            else logger.success
+        )
+        log(
+            "Solve '{}' concluído: status={} ({:.2f}s, solver='{}')",
+            label,
+            termination_condition,
+            metrics.wall_time_seconds,
+            solver_name,
+        )
 
     def _resolve_profile(
         self, profile: str, data: ProblemData | None
@@ -168,6 +197,7 @@ class PyomoAdapter(SolverAdapter, YamlComponentBuilder):
         if termination_condition not in INFEASIBLE_TERMINATION_CONDITIONS:
             return None
         analyzer_cls = get_infeasibility_analyzer(solver_name, default=ElasticRelaxationAnalyzer)
+        logger.info("Diagnosticando infeasibilidade via '{}'", analyzer_cls.__name__)
         analyzer = analyzer_cls(
             solver_name=solver_name,
             options=infeasibility_spec.get("options", {}),
