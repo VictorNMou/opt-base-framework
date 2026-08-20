@@ -13,8 +13,11 @@ quickstart e comandos de desenvolvimento — este arquivo cobre convenções de 
 - `develop` → PR para `main` quando fizer sentido consolidar (ex.: após uma ou mais features
   mergeadas em `develop`).
 - Uma branch/PR por assunto — não empacotar mudanças não relacionadas no mesmo PR.
-- PRs são abertos com `gh pr create`; merge fica a cargo do usuário/review no GitHub, não é
-  feito localmente.
+- PRs de `feat/<nome>` para `develop` são abertos com `gh pr create`; merge fica a cargo do
+  usuário/review no GitHub, não é feito localmente.
+- PRs de `develop` para `main`: Claude Code pode abrir (`gh pr create`) e mergear
+  (`gh pr merge`) sem precisar de aprovação manual a cada vez, desde que os checks de
+  "Antes de abrir um PR" abaixo tenham passado localmente antes do push.
 
 Exemplo de sequência correta:
 
@@ -30,3 +33,11 @@ gh pr create --base develop --head feat/nome-da-mudanca --title "..." --body "..
 - `uv run pytest` (cobertura ~100% em `src/optframework/`)
 - `uv run ruff check .`
 - `uv run pylint src problems tests`
+
+## Convenções de código
+
+- Simplicidade sempre — prefira a solução mais simples que resolve o problema; evite
+  abstrações, parâmetros ou camadas que não têm uso concreto agora.
+- Métodos/funções com uma única responsabilidade bem definida, quando possível — se um método
+  está fazendo duas coisas (ex.: anexar e decidir estado), considere separá-las em métodos
+  distintos, cada um chamável de forma independente.
