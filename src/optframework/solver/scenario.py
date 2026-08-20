@@ -3,9 +3,11 @@ from typing import Any
 
 import pyomo.environ as pyo
 
+from optframework.constraints.orchestrator import Constraints
 from optframework.core.problem_data import ProblemData
 from optframework.core.yaml_component import YamlComponentBuilder
 from optframework.logging import logger
+from optframework.objective.objective import Objective
 from optframework.results.result import Result
 from optframework.solver.adapter import SolverAdapter
 
@@ -37,6 +39,8 @@ class ScenarioRunner:
         self.solver = solver
         self.data = data
         self.warm_start = warm_start
+        self.constraints = Constraints()
+        self.objective = Objective()
 
     def run(
         self, scenarios: list[Scenario], profile: str = "default"
@@ -61,11 +65,10 @@ class ScenarioRunner:
     def _apply(self, scenario: Scenario) -> None:
         for name, value in scenario.param_overrides.items():
             self._set_param(name, value)
-        for name, active in scenario.active_constraints.items():
-            component = getattr(self.model, name)
-            component.activate() if active else component.deactivate()
+        if scenario.active_constraints:
+            self.constraints.set_enabled(self.model, scenario.active_constraints)
         if scenario.active_objective is not None:
-            self._activate_only(scenario.active_objective)
+            self.objective.set_active(self.model, scenario.active_objective)
         for name, value in scenario.fixed_variables.items():
             self._fix_variable(name, value)
 
@@ -84,13 +87,6 @@ class ScenarioRunner:
                 var[idx].fix(v)
         else:
             var.fix(value)
-
-    def _activate_only(self, name: str) -> None:
-        for objective in self.model.component_objects(pyo.Objective):
-            if objective.name == name:
-                objective.activate()
-            else:
-                objective.deactivate()
 
 
 class ScenarioLoop(YamlComponentBuilder):

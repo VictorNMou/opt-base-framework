@@ -244,18 +244,18 @@ def test_valid_config_does_not_raise(tmp_path: Path) -> None:
                     "constraints:\n  capacidade:\n    enabled: data.inexistente\n"
                 )
             },
-            "não tem esse atributo",
-            id="constraint_dynamic_enabled_source_attribute_missing",
+            "'enabled' deve ser bool",
+            id="constraint_enabled_not_bool",
         ),
         pytest.param(
             {
                 "model_constraints.yaml": (
                     "rules_class: tests.strategy.fixtures.FakeRules\n"
-                    "constraints:\n  metodo_inexistente:\n    enabled: data.capacidade\n"
+                    "constraints:\n  metodo_inexistente:\n    enabled: false\n"
                 )
             },
             "não tem método correspondente",
-            id="constraint_dynamic_enabled_still_validates_rule_method",
+            id="constraint_disabled_still_validates_rule_method",
         ),
         pytest.param(
             {
@@ -366,7 +366,7 @@ def test_all_files_missing_reports_all_of_them(tmp_path: Path) -> None:
         assert f"Arquivo ausente: {filename}" in message
 
 
-def test_disabled_constraint_with_missing_method_is_not_validated(
+def test_disabled_constraint_with_missing_method_is_still_validated(
     tmp_path: Path,
 ) -> None:
     overrides = {
@@ -380,7 +380,8 @@ def test_disabled_constraint_with_missing_method_is_not_validated(
     }
     data = _write_files(tmp_path, overrides)
 
-    validate_problem_config(data)
+    with pytest.raises(ConfigValidationError, match="desabilitada"):
+        validate_problem_config(data)
 
 
 def test_valid_config_with_indexed_constraint_does_not_raise(tmp_path: Path) -> None:
@@ -395,13 +396,13 @@ def test_valid_config_with_indexed_constraint_does_not_raise(tmp_path: Path) -> 
     validate_problem_config(data)
 
 
-def test_valid_config_with_dynamic_enabled_constraint_does_not_raise(
+def test_valid_config_with_static_enabled_constraint_does_not_raise(
     tmp_path: Path,
 ) -> None:
     overrides = {
         "model_constraints.yaml": (
             "rules_class: tests.strategy.fixtures.FakeRules\n"
-            "constraints:\n  capacidade:\n    enabled: data.capacidade\n"
+            "constraints:\n  capacidade:\n    enabled: true\n"
         )
     }
     data = _write_files(tmp_path, overrides)
