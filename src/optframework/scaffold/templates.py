@@ -38,8 +38,8 @@ def render_model_constraints(rules_class: str) -> str:
 rules_class: {rules_class}
 constraints: {{}}
 # TODO: uma entrada por constraint, com um método de mesmo nome na classe de Rules acima
-# (rules.py). Ver README, seções "Constraints indexadas" e "Constraints habilitadas
-# dinamicamente", para index/enabled opcionais.
+# (rules.py). Ver docs/configuration.md, seções "Indexed constraints" e "Attaching vs.
+# enabling constraints", para index/enabled opcionais.
 """
 
 

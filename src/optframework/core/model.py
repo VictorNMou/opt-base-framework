@@ -34,7 +34,9 @@ class Model:
         self.variables.attach_to_model(self.model, self.data)
         self.expressions.attach_to_model(self.model, self.data)
         self.constraints.attach_to_model(self.model, self.data)
+        self.constraints.apply_enabled(self.model, self.data)
         self.objective.attach_to_model(self.model, self.data)
+        self.objective.apply_profile(self.model, self.data)
         logger.info(
             "Modelo montado: {} sets, {} parameters, {} variables, {} constraints",
             len(list(self.model.component_objects(pyo.Set))),

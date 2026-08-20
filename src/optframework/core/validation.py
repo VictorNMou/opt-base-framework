@@ -39,7 +39,7 @@ def validate_problem_config(data: ProblemData) -> None:
     if expressions_config is not None:
         _validate_expressions(expressions_config, declared_sets, errors)
     if constraints_config is not None:
-        _validate_constraints(constraints_config, data, declared_sets, errors)
+        _validate_constraints(constraints_config, declared_sets, errors)
     if objective_config is not None:
         _validate_objective(objective_config, errors)
 
@@ -258,11 +258,10 @@ def _validate_rule_method(
 
 def _validate_constraints(
     config: dict[str, Any],
-    data: ProblemData,
     declared_sets: set[str],
     errors: list[str],
 ) -> None:
-    """Valida 'rules_class' e a seção 'constraints', pulando famílias estaticamente desabilitadas."""
+    """Valida 'rules_class' e a seção 'constraints' — toda constraint é sempre anexada ao modelo (só ligada/desligada por 'enabled'), então o método é sempre exigido."""
     rules_cls = _import_rule(
         config.get("rules_class"), "model_constraints.yaml", errors
     )
@@ -274,10 +273,10 @@ def _validate_constraints(
         context = f"model_constraints.yaml: constraint '{name}'"
         _validate_index(spec.get("index", []), declared_sets, context, errors)
         enabled_spec = spec.get("enabled", True)
-        if isinstance(enabled_spec, str):
-            _validate_source(enabled_spec, data, context, errors)
-        elif not enabled_spec:
-            continue
+        if not isinstance(enabled_spec, bool):
+            errors.append(
+                f"{context}: 'enabled' deve ser bool, recebido {enabled_spec!r}."
+            )
         _validate_rule_method(
             rules_cls, name, "model_constraints.yaml", "constraint", errors
         )

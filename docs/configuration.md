@@ -111,27 +111,50 @@ Without `index` (or `index: []`), the constraint stays scalar as before — no e
 needs to change. An `index` referencing a Set not declared in `model_sets.yaml` is caught by
 config validation (the same check already applied to `Variables`/`Parameters`).
 
-## Dynamically enabled constraints
+## Attaching vs. enabling constraints and objectives
 
-`enabled` in `model_constraints.yaml` accepts either a static bool (as before) or a
-`data.<attribute>` string, resolved against `data` at build time — the same mechanism as
-`source` for Sets/Parameters. Useful when a constraint family only makes sense for some problem
-instances (e.g. a price-group coherence constraint that only exists if a batch has more than one
-comparable item):
+Both `Constraints` (`constraints/orchestrator.py`) and `Objective` (`objective/objective.py`)
+split "build the component" from "decide if it's active" into separate, single-purpose methods —
+each independently callable, none of them deciding more than one thing:
+
+| | Attach (always, unconditional) | Apply config state (called by `Model.build()`) | Ad-hoc, by name |
+|---|---|---|---|
+| `Constraints` | `attach_to_model(model, data)` — builds **every** family declared in `model_constraints.yaml`, regardless of `enabled` | `apply_enabled(model, data)` — reads each family's static `enabled: bool` (default `true`) and calls `activate()`/`deactivate()` | `set_enabled(model, {"name": bool, ...})` |
+| `Objective` | `attach_to_model(model, data)` — builds **every** objective declared in `model_objective.yaml`, all left active by default | `apply_profile(model, data, profile=None)` — activates the chosen profile (or the YAML `default`) and deactivates the rest | `set_active(model, "name")` |
 
 ```yaml
+# model_constraints.yaml
 constraints:
   price_group_coherence:
-    enabled: data.price_group_coherence_enabled
+    enabled: false
 ```
 
-`ProblemData` exposes that attribute as an already-computed `bool` (typically produced by a
-`ConstraintsPreprocessor`, from the batch's own data) — the framework just resolves `getattr`,
-without deciding the business rule behind the flag. With a dynamic `enabled`, config validation
-has no way of knowing upfront whether the constraint will be active, so it **always** checks that
-the method exists on `Rules` (unlike a static `enabled: false`, which skips that check — since
-the method will never run). An `enabled` pointing at a nonexistent `data` attribute is caught by
-config validation, with the same message already used for `source` on Sets/Parameters.
+```yaml
+# model_objective.yaml
+default: minimize_cost
+objectives:
+  minimize_cost:
+    sense: minimize
+  maximize_margin:
+    sense: maximize
+```
+
+`enabled`/`profile` only decide activation state, never whether the component gets *built* —
+config validation **always** checks that the corresponding `Rules` method exists, and that
+`enabled` (when present) is a `bool`, not a `data.<attribute>` string or anything else. There's no
+dynamic `enabled` in the YAML: if whether a constraint (or which objective) should be active
+depends on `data`, that decision belongs in the problem's own code (e.g. a
+`ConstraintsPreprocessor` or the calling code), which computes the value and calls the ad-hoc
+method directly — `set_enabled`/`set_active` — independent of config. This keeps the framework
+"dumb" (it only flips the switch) and the business rule behind the flag entirely in problem-owned
+code. `ScenarioRunner` (`solver/scenario.py`) is itself a caller of these ad-hoc methods: a
+scenario's `active_constraints`/`active_objective` go straight into `set_enabled`/`set_active`
+between builds, with no rebuild involved.
+
+Both ad-hoc methods validate the name(s) they're given **before** touching any component state:
+`set_enabled` raises `KeyError` if a name in the dict isn't attached to the model; `set_active`
+raises `KeyError` if `name` doesn't match any attached objective — guaranteeing exactly one
+objective stays active (never zero, from an unnoticed typo silently deactivating everything).
 
 ## Config validation
 
@@ -151,6 +174,8 @@ Before building any Pyomo component, `Model.build()` calls `validate_problem_con
   `data.<attribute>`.
 - `rules_class` on Expressions/Constraints/Objective — importable, and every enabled
   expression/constraint/objective has a matching method on the class.
+- `enabled` on Constraints — when present, must be a `bool` (see
+  [Attaching vs. enabling constraints and objectives](#attaching-vs-enabling-constraints-and-objectives)).
 - `default`/`sense` on Objective — `default` points at a declared objective, `sense` is
   `minimize` or `maximize`.
 
@@ -158,5 +183,6 @@ Without this validation, each of these errors only surfaced deep inside Pyomo, a
 `AttributeError`/`KeyError`, without pointing at which file or field caused it — and one at a
 time, requiring several rounds of trial and error. Validation runs once, aggregates **all**
 problems found across the present files, and raises a single `ConfigValidationError` with the
-full list. Disabled constraints (static `enabled: false`) are skipped, since they never run —
-expressions have no such concept, so every declared expression always has its method validated.
+full list. Every declared constraint has its method validated regardless of `enabled` — disabled
+constraints are still built (just deactivated) — same as expressions, which have no `enabled` at
+all.
